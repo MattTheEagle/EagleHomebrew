@@ -1,0 +1,17 @@
+/* Eagle Homebrew window (milestone M4, extended M7). Scoped to this window's own id only (UI guide R-13): no colors,
+   no fonts, only the layout so its own content scrolls instead of overflowing past the visible window — the same
+   fix EagleLibrary/v13/styles/eagle-library.css already applied for its own window (F-M10-1/F-M10-2), needed here
+   again once the Activity builder's "More fields" section made the form taller than the window (M7 live-check
+   finding). */
+
+#eagle-homebrew-window .window-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#eagle-homebrew-window .eagle-homebrew-root {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
