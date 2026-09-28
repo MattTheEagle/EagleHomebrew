@@ -167,6 +167,27 @@
           }
         }
       },
+      "action": {
+        "legend": "Actions",
+        "addAction": "Add Action",
+        "pickItemType": "What kind of item carries this action?",
+        "itemTypeFeat": "Feature (attacks, traits, legendary actions, ...)",
+        "itemTypeWeapon": "Weapon (a bite, claw, or other natural/manufactured weapon attack)",
+        "confirm": "Add",
+        "activityHeading": "Activity (optional)",
+        "noActivityHint": "Without an Activity, this becomes a passive Trait (no attack roll, save, or other roll).",
+        "removeActivity": "Remove Activity",
+        "preview": "Appears in the statblock as: {category}",
+        "category": {
+          "trait": "Trait (passive)",
+          "action": "Action",
+          "bonus": "Bonus Action",
+          "reaction": "Reaction",
+          "legendary": "Legendary Action",
+          "mythic": "Mythic Action",
+          "unlisted": "Not shown in the statblock (dnd5e limitation)"
+        }
+      },
       "item": {
         "section": {
           "core": "Details",
@@ -175,7 +196,13 @@
           "equippable": "Wearing and Attunement",
           "mountable": "Siege Weapon / Vehicle Mount",
           "uses": "Uses",
-          "advanced": "Advanced (raw data)"
+          "advanced": "Advanced (raw data)",
+          "abilityScores": "Ability Scores",
+          "skills": "Skills",
+          "combat": "Combat",
+          "movement": "Movement",
+          "senses": "Senses",
+          "resistances": "Resistances & Languages"
         },
         "field": {
           "toolType": "Tool Type",
@@ -256,7 +283,67 @@
           "facilitySubtype": "Facility Subtype",
           "defenderCapacity": "Defender Capacity",
           "hirelingCapacity": "Hireling Capacity",
-          "tradeCreatureCapacity": "Trade Creature Capacity"
+          "tradeCreatureCapacity": "Trade Creature Capacity",
+          "ability": {
+            "str": "Strength",
+            "dex": "Dexterity",
+            "con": "Constitution",
+            "int": "Intelligence",
+            "wis": "Wisdom",
+            "cha": "Charisma"
+          },
+          "abilitySave": {
+            "str": "Strength Save Proficiency",
+            "dex": "Dexterity Save Proficiency",
+            "con": "Constitution Save Proficiency",
+            "int": "Intelligence Save Proficiency",
+            "wis": "Wisdom Save Proficiency",
+            "cha": "Charisma Save Proficiency"
+          },
+          "skill": {
+            "acr": "Acrobatics",
+            "ani": "Animal Handling",
+            "arc": "Arcana",
+            "ath": "Athletics",
+            "dec": "Deception",
+            "his": "History",
+            "ins": "Insight",
+            "itm": "Intimidation",
+            "inv": "Investigation",
+            "med": "Medicine",
+            "nat": "Nature",
+            "prc": "Perception",
+            "prf": "Performance",
+            "per": "Persuasion",
+            "rel": "Religion",
+            "slt": "Sleight of Hand",
+            "ste": "Stealth",
+            "sur": "Survival"
+          },
+          "biography": "Biography",
+          "biographyPublic": "Public Biography",
+          "challengeRating": "Challenge Rating",
+          "acCalc": "Armor Class Calculation",
+          "acFlat": "Armor Class (Flat Value)",
+          "acFormula": "Armor Class Formula",
+          "hpFormula": "Hit Points Formula",
+          "initiativeBonus": "Initiative Bonus",
+          "attunementCapacity": "Attunement Capacity",
+          "damageImmunities": "Damage Immunities",
+          "damageImmunitiesCustom": "Damage Immunities (Other)",
+          "damageResistances": "Damage Resistances",
+          "damageResistancesCustom": "Damage Resistances (Other)",
+          "damageVulnerabilities": "Damage Vulnerabilities",
+          "damageVulnerabilitiesCustom": "Damage Vulnerabilities (Other)",
+          "conditionImmunitiesLabel": "Condition Immunities",
+          "conditionImmunitiesCustom": "Condition Immunities (Other)",
+          "languagesLabel": "Languages",
+          "languagesCustom": "Languages (Other)",
+          "legendaryActionsMax": "Legendary Actions (Max)",
+          "legendaryResistancesMax": "Legendary Resistances (Max)",
+          "hasLairActions": "Has Lair Actions",
+          "lairActionInitiative": "Lair Action Initiative Count",
+          "lairActionInsideOnly": "Lair Action Only Usable Inside Lair"
         }
       },
       "notify": {

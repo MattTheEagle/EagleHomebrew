@@ -34,10 +34,14 @@ const M14_KINDS = ["class", "subclass"] as const;
 // M15: Facility shares DESCRIPTION_FIELDS too, but keeps the M11 "no identifier" rule (unlike Class/Subclass) —
 // its own constant so it can join the "dropped identifier" check ALL_KINDS is used for, not the M14 exception.
 const M15_KINDS = ["facility"] as const;
+// M16: NPC is an Actor, not an Item — it has no `ItemDescriptionTemplate` at all (no `identified`,
+// no `description.*`, no `source.*`), so it is deliberately excluded from every DESCRIPTION_FIELDS/
+// source.*-related check below; its own field list gets a dedicated test instead.
+const M16_KINDS = ["npc"] as const;
 
 describe("ITEM_KIND_SPECS", () => {
-  it("has exactly the twelve M8-M15 kinds", () => {
-    expect(ITEM_KIND_SPECS.map((spec) => spec.kind).sort()).toEqual([...ALL_KINDS, ...M14_KINDS, ...M15_KINDS].sort());
+  it("has exactly the thirteen M8-M16 kinds", () => {
+    expect(ITEM_KIND_SPECS.map((spec) => spec.kind).sort()).toEqual([...ALL_KINDS, ...M14_KINDS, ...M15_KINDS, ...M16_KINDS].sort());
   });
 
   it("marks every field with a path and a widget (no gaps, N21)", () => {
@@ -529,6 +533,68 @@ describe("FACILITY_FIELDS (M15)", () => {
     for (const path of ["building.built", "building.size", "enlargeable", "disabled", "order", "progress.value", "craft.item", "defenders.value", "hirelings.value", "trade.profit"]) {
       expect(paths, path).not.toContain(path);
     }
+  });
+});
+
+describe("NPC_FIELDS (M16)", () => {
+  const paths = specForItemKind("npc").fields.map((f) => f.path);
+
+  it("covers all six abilities (value + save proficiency) and all eighteen skills", () => {
+    for (const key of ["str", "dex", "con", "int", "wis", "cha"]) {
+      expect(paths, key).toContain(`abilities.${key}.value`);
+      expect(paths, key).toContain(`abilities.${key}.proficient`);
+    }
+    for (const key of ["acr", "ani", "arc", "ath", "dec", "his", "ins", "itm", "inv", "med", "nat", "prc", "prf", "per", "rel", "slt", "ste", "sur"]) {
+      expect(paths, key).toContain(`skills.${key}.value`);
+    }
+  });
+
+  it("gives ability save and skill proficiency a value-keyed select, not checkbox (dnd5e stores 0/0.5/1/2, not a boolean) — M16 live-check rework", () => {
+    const fields = specForItemKind("npc").fields;
+    const saveProficiency = fields.find((f) => f.path === "abilities.str.proficient");
+    expect(saveProficiency?.widget).toBe("select");
+    expect(saveProficiency?.choicesKind).toBe("saveProficiencyLevels");
+    const skillProficiency = fields.find((f) => f.path === "skills.acr.value");
+    expect(skillProficiency?.widget).toBe("select");
+    expect(skillProficiency?.choicesKind).toBe("proficiencyLevels");
+  });
+
+  it("groups its ~48 fields into dedicated sections instead of one flat list — M16 live-check rework", () => {
+    const fields = specForItemKind("npc").fields;
+    const sectionOf = (path: string): string | undefined => fields.find((f) => f.path === path)?.section;
+    expect(sectionOf("abilities.str.value")).toBe("abilityScores");
+    expect(sectionOf("skills.acr.value")).toBe("skills");
+    expect(sectionOf("attributes.ac.flat")).toBe("combat");
+    expect(sectionOf("attributes.movement.walk")).toBe("movement");
+    expect(sectionOf("attributes.senses.ranges.darkvision")).toBe("senses");
+    expect(sectionOf("traits.di.value")).toBe("resistances");
+    expect(sectionOf("details.alignment")).toBe("description");
+    expect(sectionOf("traits.size")).toBe("core");
+  });
+
+  it("covers the rest of the statblock: type, size, AC/HP/init/movement/senses, resistances, languages, legendary Max fields", () => {
+    for (const path of [
+      "traits.size", "details.type.value", "details.cr", "attributes.ac.calc", "attributes.ac.flat",
+      "attributes.hp.formula", "attributes.init.bonus", "attributes.movement.walk", "attributes.senses.ranges.darkvision",
+      "traits.di.value", "traits.dr.value", "traits.dv.value", "traits.ci.value", "traits.languages.value",
+      "resources.legact.max", "resources.legres.max", "resources.lair.value",
+    ]) {
+      expect(paths, path).toContain(path);
+    }
+  });
+
+  it("does not spread the Item-only DESCRIPTION_FIELDS (NPC is an Actor, uses details.biography.* instead)", () => {
+    for (const path of ["identified", "description.value", "description.chat", "identifier"]) {
+      expect(paths, path).not.toContain(path);
+    }
+    expect(paths).toContain("details.biography.value");
+    expect(paths).toContain("details.biography.public");
+  });
+
+  it("leaves Actions/Legendary Actions and tool proficiencies as Non-Goals (Human Decision m16-hd-1, Entscheidungen 1-2)", () => {
+    for (const path of paths) expect(path.startsWith("tools.")).toBe(false);
+    // No path referencing embedded-item concepts (activities live on Items, never on the Actor itself).
+    expect(paths.some((p) => p.includes("activities"))).toBe(false);
   });
 });
 

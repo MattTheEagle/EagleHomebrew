@@ -37,15 +37,22 @@ export interface CatalogEntry {
   // ActiveEffects natively in Foundry (not gated by this dnd5e Item-only flag at all), but none of them has a
   // Homebrew form yet, so this is left `false` for them until that kind's own milestone actually discovers it.
   readonly hasEffects: boolean;
+  // M16a Discover Befund 1/5: NPC "Aktionen" are embedded Feat/Weapon Items, a structure no other kind
+  // shares (`hasActivities`/`hasEffects` above are both, correctly, `false` for every Actor kind — an
+  // Actor itself has neither `ActivitiesTemplate` nor `metadata.hasEffects`; this is a third, independent
+  // concept: "this kind's own editor has an Actions sub-builder for its embedded items"). `true` only for
+  // `npc` — no other kind (including the other three Actor kinds) has this milestone's Actions builder;
+  // Vehicle could revisit the same question in its own future milestone, not assumed here.
+  readonly hasActions: boolean;
 }
 
 const ACTIVITY_KINDS = new Set(["tool", "weapon", "feat", "spell", "consumable", "equipment", "facility"]);
 const EFFECT_KINDS = new Set(["tool", "weapon", "equipment", "consumable", "feat", "spell"]);
 
 const item = (key: string, subtype: string, title: string): CatalogEntry =>
-  ({ key, art: "Item", worldType: "Item", subtype, versioned: true, title, hasActivities: ACTIVITY_KINDS.has(subtype), hasEffects: EFFECT_KINDS.has(subtype) });
-const actor = (key: string, subtype: string, title: string, versioned: boolean): CatalogEntry =>
-  ({ key, art: "Actor", worldType: "Actor", subtype, versioned, title, hasActivities: false, hasEffects: false });
+  ({ key, art: "Item", worldType: "Item", subtype, versioned: true, title, hasActivities: ACTIVITY_KINDS.has(subtype), hasEffects: EFFECT_KINDS.has(subtype), hasActions: false });
+const actor = (key: string, subtype: string, title: string, versioned: boolean, hasActions = false): CatalogEntry =>
+  ({ key, art: "Actor", worldType: "Actor", subtype, versioned, title, hasActivities: false, hasEffects: false, hasActions });
 
 // 18 entries, in the order of `04-milestone-plan.md` (simple, medium, high, special cases), matching
 // EagleLibrary/docs/library-convention.md section 1 minus `journals`.
@@ -62,7 +69,7 @@ export const CATALOG: readonly CatalogEntry[] = Object.freeze(
     // dnd5e stores the subtype as "race"; its interface says "Species" (EagleLibrary/core/catalog.ts, same note).
     item("species", "race", "Species"),
     item("backgrounds", "background", "Background"),
-    actor("npcs", "npc", "NPC", true),
+    actor("npcs", "npc", "NPC", true, true),
     actor("vehicles", "vehicle", "Vehicle", true),
     item("classes", "class", "Class"),
     item("subclasses", "subclass", "Subclass"),
@@ -77,6 +84,7 @@ export const CATALOG: readonly CatalogEntry[] = Object.freeze(
       title: "Roll Table",
       hasActivities: false,
       hasEffects: false,
+      hasActions: false,
     }),
   ].map((entry) => Object.freeze(entry)),
 );

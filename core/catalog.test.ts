@@ -80,6 +80,11 @@ describe("CATALOG", () => {
       if (entry.art !== "Item") expect(entry.hasEffects, entry.key).toBe(false);
     }
   });
+
+  it("marks exactly \"npcs\" as hasActions (M16a Discover, Befund 1/5)", () => {
+    const withActions = CATALOG.filter((entry) => entry.hasActions).map((entry) => entry.key);
+    expect(withActions).toEqual(["npcs"]);
+  });
 });
 
 describe("subcategoriesOf", () => {

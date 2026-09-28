@@ -75,7 +75,12 @@ export type ChoicesKind =
   | "armorProficiencyTypes"
   | "weaponProficiencyTypes"
   | "facilityTypes"
-  | "facilitySizes";
+  | "facilitySizes"
+  | "actorSizes"
+  | "armorClassCalculations"
+  | "proficiencyLevels"
+  | "saveProficiencyLevels"
+  | "legendaryActionIdentifiers";
 
 export interface ActivityField {
   readonly path: string;

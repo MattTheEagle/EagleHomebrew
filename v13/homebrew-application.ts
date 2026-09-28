@@ -14,6 +14,7 @@ import { specForItemKind, buildItemFieldData, type ItemField, type ItemFieldVisi
 import { buildTableResults, type TableResultDraft } from "../core/table-result";
 import { advancementTypesFor, specForAdvancement, type AdvancementField, type AdvancementType } from "../core/advancement-model";
 import { buildAdvancementChanges, type AdvancementDraft } from "../core/advancement-batch";
+import { actionItemFields, buildNpcActionItemsChanges, npcActionCategory, type NpcActionCategory, type NpcActionDraft, type NpcActionItemType } from "../core/npc-action-model";
 
 // M11c (dadm/m11c-02-apply-output.md, Entscheidung 2): one change row's live inputs — either the curated
 // picker (`target`/`parameter`/`value`/`proficiency`) or, when `target.value === "custom"`, the original raw
@@ -409,7 +410,7 @@ const ARTS: readonly Art[] = ["Actor", "Item", "RollTable"];
 // "equipment"/"consumables" from M9, "containers" from M10, "feats"/"backgrounds" from M11, "spells"/"species"
 // from M12, full field coverage, N21). Every other kind still shows the "not built yet" placeholder; the
 // remaining M13-M18 editors add to this set one milestone at a time.
-const SIMPLE_KINDS = new Set(["loot", "tools", "weapons", "equipment", "consumables", "containers", "feats", "backgrounds", "spells", "species", "rolltables", "classes", "subclasses", "facilities"]);
+const SIMPLE_KINDS = new Set(["loot", "tools", "weapons", "equipment", "consumables", "containers", "feats", "backgrounds", "spells", "species", "rolltables", "classes", "subclasses", "facilities", "npcs"]);
 
 // A catalog key's own item kind, for the fields M8-M12 built (core/item-field-model.ts) — undefined for every
 // other kind (Loot has no full-field form yet; the rest await M13-M18).
@@ -426,6 +427,7 @@ function itemKindFor(entryKey: string): ItemKind | undefined {
   if (entryKey === "classes") return "class";
   if (entryKey === "subclasses") return "subclass";
   if (entryKey === "facilities") return "facility";
+  if (entryKey === "npcs") return "npc";
   return undefined;
 }
 
@@ -437,6 +439,24 @@ const ACTIVITY_TYPE_LABEL_KEY: Record<ActivityType, string> = {
   check: "EAGLEHOMEBREW.window.activity.type.check",
   heal: "EAGLEHOMEBREW.window.activity.type.heal",
 };
+
+// M16a: labels for the "Erscheint als: ..." live preview (Apply Entscheidung 4) — one per `NpcActionCategory`.
+const NPC_ACTION_CATEGORY_LABEL_KEY: Record<NpcActionCategory, string> = {
+  trait: "EAGLEHOMEBREW.window.action.category.trait",
+  action: "EAGLEHOMEBREW.window.action.category.action",
+  bonus: "EAGLEHOMEBREW.window.action.category.bonus",
+  reaction: "EAGLEHOMEBREW.window.action.category.reaction",
+  legendary: "EAGLEHOMEBREW.window.action.category.legendary",
+  mythic: "EAGLEHOMEBREW.window.action.category.mythic",
+  unlisted: "EAGLEHOMEBREW.window.action.category.unlisted",
+};
+
+// Whether a draft's own item fields have the "trait" property set — the same check `npcActionCategory`
+// needs, read back from the already-built `itemFieldValues` (confirmed drafts) rather than a live input.
+function npcActionDraftHasTraitProperty(itemFieldValues: Readonly<Record<string, JsonValue>>): boolean {
+  const properties = itemFieldValues.properties;
+  return Array.isArray(properties) && properties.includes("trait");
+}
 
 // A few paths whose last segment alone reads badly ("Value", "Classification" with no context) — M7 rework,
 // live-check finding: the anleitung said "Type", the auto-label said "Value" for the same field. Everything else
@@ -527,6 +547,68 @@ const ITEM_FIELD_LABEL_KEY: Record<string, string> = {
   "facility:defenders.max": "EAGLEHOMEBREW.window.item.field.defenderCapacity",
   "facility:hirelings.max": "EAGLEHOMEBREW.window.item.field.hirelingCapacity",
   "facility:trade.creatures.max": "EAGLEHOMEBREW.window.item.field.tradeCreatureCapacity",
+  // M16 — NPC. Every ability/skill "value" and every "Max"-named field would otherwise collide on the
+  // same auto-label as everything else in this list (the established "Value"/"Max" collision class,
+  // M8/M12/M14/M15) — each gets its own explicit label naming which ability/skill/resource it is.
+  "npc:abilities.str.value": "EAGLEHOMEBREW.window.item.field.ability.str",
+  "npc:abilities.dex.value": "EAGLEHOMEBREW.window.item.field.ability.dex",
+  "npc:abilities.con.value": "EAGLEHOMEBREW.window.item.field.ability.con",
+  "npc:abilities.int.value": "EAGLEHOMEBREW.window.item.field.ability.int",
+  "npc:abilities.wis.value": "EAGLEHOMEBREW.window.item.field.ability.wis",
+  "npc:abilities.cha.value": "EAGLEHOMEBREW.window.item.field.ability.cha",
+  "npc:abilities.str.proficient": "EAGLEHOMEBREW.window.item.field.abilitySave.str",
+  "npc:abilities.dex.proficient": "EAGLEHOMEBREW.window.item.field.abilitySave.dex",
+  "npc:abilities.con.proficient": "EAGLEHOMEBREW.window.item.field.abilitySave.con",
+  "npc:abilities.int.proficient": "EAGLEHOMEBREW.window.item.field.abilitySave.int",
+  "npc:abilities.wis.proficient": "EAGLEHOMEBREW.window.item.field.abilitySave.wis",
+  "npc:abilities.cha.proficient": "EAGLEHOMEBREW.window.item.field.abilitySave.cha",
+  "npc:skills.acr.value": "EAGLEHOMEBREW.window.item.field.skill.acr",
+  "npc:skills.ani.value": "EAGLEHOMEBREW.window.item.field.skill.ani",
+  "npc:skills.arc.value": "EAGLEHOMEBREW.window.item.field.skill.arc",
+  "npc:skills.ath.value": "EAGLEHOMEBREW.window.item.field.skill.ath",
+  "npc:skills.dec.value": "EAGLEHOMEBREW.window.item.field.skill.dec",
+  "npc:skills.his.value": "EAGLEHOMEBREW.window.item.field.skill.his",
+  "npc:skills.ins.value": "EAGLEHOMEBREW.window.item.field.skill.ins",
+  "npc:skills.itm.value": "EAGLEHOMEBREW.window.item.field.skill.itm",
+  "npc:skills.inv.value": "EAGLEHOMEBREW.window.item.field.skill.inv",
+  "npc:skills.med.value": "EAGLEHOMEBREW.window.item.field.skill.med",
+  "npc:skills.nat.value": "EAGLEHOMEBREW.window.item.field.skill.nat",
+  "npc:skills.prc.value": "EAGLEHOMEBREW.window.item.field.skill.prc",
+  "npc:skills.prf.value": "EAGLEHOMEBREW.window.item.field.skill.prf",
+  "npc:skills.per.value": "EAGLEHOMEBREW.window.item.field.skill.per",
+  "npc:skills.rel.value": "EAGLEHOMEBREW.window.item.field.skill.rel",
+  "npc:skills.slt.value": "EAGLEHOMEBREW.window.item.field.skill.slt",
+  "npc:skills.ste.value": "EAGLEHOMEBREW.window.item.field.skill.ste",
+  "npc:skills.sur.value": "EAGLEHOMEBREW.window.item.field.skill.sur",
+  "npc:details.type.value": "EAGLEHOMEBREW.window.item.field.creatureType",
+  "npc:details.type.subtype": "EAGLEHOMEBREW.window.item.field.creatureSubtype",
+  "npc:details.type.custom": "EAGLEHOMEBREW.window.item.field.creatureCustom",
+  "npc:details.biography.value": "EAGLEHOMEBREW.window.item.field.biography",
+  "npc:details.biography.public": "EAGLEHOMEBREW.window.item.field.biographyPublic",
+  "npc:details.cr": "EAGLEHOMEBREW.window.item.field.challengeRating",
+  "npc:attributes.ac.calc": "EAGLEHOMEBREW.window.item.field.acCalc",
+  "npc:attributes.ac.flat": "EAGLEHOMEBREW.window.item.field.acFlat",
+  "npc:attributes.ac.formula": "EAGLEHOMEBREW.window.item.field.acFormula",
+  "npc:attributes.hp.formula": "EAGLEHOMEBREW.window.item.field.hpFormula",
+  "npc:attributes.init.bonus": "EAGLEHOMEBREW.window.item.field.initiativeBonus",
+  "npc:attributes.movement.units": "EAGLEHOMEBREW.window.item.field.movementUnitsLabel",
+  "npc:attributes.senses.units": "EAGLEHOMEBREW.window.item.field.sensesUnits",
+  "npc:attributes.attunement.max": "EAGLEHOMEBREW.window.item.field.attunementCapacity",
+  "npc:traits.di.value": "EAGLEHOMEBREW.window.item.field.damageImmunities",
+  "npc:traits.di.custom": "EAGLEHOMEBREW.window.item.field.damageImmunitiesCustom",
+  "npc:traits.dr.value": "EAGLEHOMEBREW.window.item.field.damageResistances",
+  "npc:traits.dr.custom": "EAGLEHOMEBREW.window.item.field.damageResistancesCustom",
+  "npc:traits.dv.value": "EAGLEHOMEBREW.window.item.field.damageVulnerabilities",
+  "npc:traits.dv.custom": "EAGLEHOMEBREW.window.item.field.damageVulnerabilitiesCustom",
+  "npc:traits.ci.value": "EAGLEHOMEBREW.window.item.field.conditionImmunitiesLabel",
+  "npc:traits.ci.custom": "EAGLEHOMEBREW.window.item.field.conditionImmunitiesCustom",
+  "npc:traits.languages.value": "EAGLEHOMEBREW.window.item.field.languagesLabel",
+  "npc:traits.languages.custom": "EAGLEHOMEBREW.window.item.field.languagesCustom",
+  "npc:resources.legact.max": "EAGLEHOMEBREW.window.item.field.legendaryActionsMax",
+  "npc:resources.legres.max": "EAGLEHOMEBREW.window.item.field.legendaryResistancesMax",
+  "npc:resources.lair.value": "EAGLEHOMEBREW.window.item.field.hasLairActions",
+  "npc:resources.lair.initiative": "EAGLEHOMEBREW.window.item.field.lairActionInitiative",
+  "npc:resources.lair.inside": "EAGLEHOMEBREW.window.item.field.lairActionInsideOnly",
 };
 
 // Physical/Description fields Tool and Weapon share (core/item-field-model.ts's PHYSICAL_FIELDS/
@@ -565,6 +647,13 @@ const ITEM_SECTION_LABEL_KEY: Record<ItemField["section"], string> = {
   mountable: "EAGLEHOMEBREW.window.item.section.mountable",
   uses: "EAGLEHOMEBREW.window.item.section.uses",
   advanced: "EAGLEHOMEBREW.window.item.section.advanced",
+  // M16 live-check rework: NPC-only sections (core/item-field-model.ts).
+  abilityScores: "EAGLEHOMEBREW.window.item.section.abilityScores",
+  skills: "EAGLEHOMEBREW.window.item.section.skills",
+  combat: "EAGLEHOMEBREW.window.item.section.combat",
+  movement: "EAGLEHOMEBREW.window.item.section.movement",
+  senses: "EAGLEHOMEBREW.window.item.section.senses",
+  resistances: "EAGLEHOMEBREW.window.item.section.resistances",
 };
 
 type Step = { readonly name: "art" } | { readonly name: "subcategory"; readonly art: Art } | { readonly name: "form"; readonly entry: CatalogEntry };
@@ -789,6 +878,28 @@ function choicesFor(kind: ChoicesKind): Record<string, string> {
         .facilities;
       return labelsOf(kind === "facilityTypes" ? facilities?.types : facilities?.sizes);
     }
+    // M16: both plain `{label}`-shaped top-level catalogs, the standard `labelsOf` case.
+    case "actorSizes":
+      return labelsOf(DND5E.actorSizes);
+    case "armorClassCalculations":
+      return labelsOf(DND5E.armorClasses);
+    // M16 live-check rework: dnd5e already ships both proficiency-level catalogs verbatim, keyed by
+    // the exact numbers the fields themselves store (0/0.5/1/2 and 0/1) — the same "value-keyed select"
+    // shape `spellPreparationStates` (M12) already established, `labelsOf` needs no special reader here
+    // because the catalog's own keys already match the field's stored value (unlike `prepared`, which
+    // needed a `.value`-vs-key remap).
+    case "proficiencyLevels":
+      return labelsOf(DND5E.proficiencyLevels);
+    case "saveProficiencyLevels":
+      return labelsOf(DND5E.weaponAndArmorProficiencyLevels);
+    // M16a: dnd5e's own naming convention for an NPC action item's `identifier` (`npc.mjs`'s
+    // `_prepareEmbedContext`, M16a Discover Befund 3) — not a `CONFIG.DND5E` catalog at all (dnd5e never
+    // exposes these two strings as a labelled list anywhere), the same "small, stable, hardcoded fact"
+    // treatment `activeEffectModes`/`scaleValueTypes` already get above. No blank/"(None)" entry: the
+    // generic `renderFieldWidget` "select" case already adds its own blank option for every optional
+    // select field, the same as `type.value` etc. elsewhere in this window.
+    case "legendaryActionIdentifiers":
+      return { "legendary-actions": "Legendary Actions (Section Header)", "mythic-actions": "Mythic Actions (Section Header)" };
   }
 }
 
@@ -1070,6 +1181,40 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
     if (Number.isFinite(row)) await this.removeAdvancementTableRow(row);
   }
 
+  // M16a: NPC's own Actions builder — a type picker like Activities/Advancement (`onAddAction`/
+  // `onAddAdvancement`), but the type picked first is the carrying Item's own type (Feat/Weapon,
+  // M16a Discover Befund 1), not an Activity type; the (optional) Activity type is a second, nested pick.
+  async function onAddNpcAction(this: EagleHomebrewApplication): Promise<void> {
+    await this.openNpcActionBuilder();
+  }
+
+  async function onPickNpcActionItemType(this: EagleHomebrewApplication, _event: PointerEvent, target: HTMLElement): Promise<void> {
+    const itemType = target.dataset.itemType as NpcActionItemType | undefined;
+    if (itemType) await this.pickNpcActionItemType(itemType);
+  }
+
+  async function onPickNpcActionActivityType(this: EagleHomebrewApplication, _event: PointerEvent, target: HTMLElement): Promise<void> {
+    const type = target.dataset.type as ActivityType | undefined;
+    if (type) await this.pickNpcActionActivityType(type);
+  }
+
+  async function onRemoveNpcActionActivity(this: EagleHomebrewApplication): Promise<void> {
+    await this.removeNpcActionActivity();
+  }
+
+  async function onConfirmNpcAction(this: EagleHomebrewApplication): Promise<void> {
+    await this.confirmNpcAction();
+  }
+
+  async function onCancelNpcAction(this: EagleHomebrewApplication): Promise<void> {
+    await this.cancelNpcActionBuilder();
+  }
+
+  async function onRemoveNpcActionDraft(this: EagleHomebrewApplication, _event: PointerEvent, target: HTMLElement): Promise<void> {
+    const index = Number(target.dataset.index);
+    if (Number.isFinite(index)) await this.removeNpcActionDraft(index);
+  }
+
   // A class declaration, not a class expression in the `return`: its name must be visible to the handler functions
   // above (their `this: EagleHomebrewApplication` parameter), which only a hoisted declaration gives (matches
   // EagleLibrary/v13/copy-application.ts).
@@ -1109,6 +1254,13 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
         removeAdvancementDraft: onRemoveAdvancementDraft,
         addAdvancementTableRow: onAddAdvancementTableRow,
         removeAdvancementTableRow: onRemoveAdvancementTableRow,
+        addNpcAction: onAddNpcAction,
+        pickNpcActionItemType: onPickNpcActionItemType,
+        pickNpcActionActivityType: onPickNpcActionActivityType,
+        removeNpcActionActivity: onRemoveNpcActionActivity,
+        confirmNpcAction: onConfirmNpcAction,
+        cancelNpcAction: onCancelNpcAction,
+        removeNpcActionDraft: onRemoveNpcActionDraft,
       },
     };
 
@@ -1170,6 +1322,22 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
     #advancementTableInputs = new Map<number, Map<string, HTMLInputElement | HTMLSelectElement>>();
     #advancementTableValues = new Map<number, Record<string, string | boolean>>();
 
+    // M16a: NPC's own Actions — a type picker (Feat/Weapon) like Activities/Advancement, plus its own
+    // item-field sub-form (`#actionFieldInputs`/`#actionFieldValues`, the same shape as the top-level
+    // `#itemFieldInputs`/`#itemFieldValues` but a separate map since both can be on screen at once) and,
+    // nested inside it, at most one optional Activity of its own (M16a Apply, Entscheidung 3) with its own
+    // third, independent field map.
+    #actionDrafts: NpcActionDraft[] = [];
+    #actionBuilderOpen = false;
+    #actionBuilderItemType: NpcActionItemType | undefined;
+    #actionNameInput: HTMLInputElement | undefined;
+    #actionNameValue = "";
+    #actionFieldInputs = new Map<string, HTMLInputElement | HTMLSelectElement>();
+    #actionFieldValues = new Map<string, string | boolean | string[]>();
+    #actionActivityType: ActivityType | undefined;
+    #actionActivityFieldInputs = new Map<string, HTMLInputElement | HTMLSelectElement>();
+    #actionActivityFieldValues = new Map<string, string | boolean | string[]>();
+
     // Persisted values (M7 rework, live-check finding): every re-render rebuilds the form from scratch (a new
     // ApplicationV2 `_renderHTML`/`_replaceHTML` pass), which used to silently drop anything typed but not yet
     // confirmed. `#captureValues()` snapshots the live DOM into these maps right before such a render; the render
@@ -1204,6 +1372,8 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
       this.#resetResultBuilderState();
       this.#advancementDrafts = [];
       this.#resetAdvancementBuilderState();
+      this.#actionDrafts = [];
+      this.#resetNpcActionBuilderState();
       await this.render();
     }
 
@@ -1403,6 +1573,86 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
       await this.render();
     }
 
+    // M16a: opens the item-type picker (Feat/Weapon) — the carrying Item's own type, not an Activity type
+    // (that is a second, nested pick, `pickNpcActionActivityType`, once `pickNpcActionItemType` has run).
+    async openNpcActionBuilder(): Promise<void> {
+      this.#captureValues();
+      this.#resetNpcActionBuilderState();
+      this.#actionBuilderOpen = true;
+      await this.render();
+    }
+
+    async pickNpcActionItemType(itemType: NpcActionItemType): Promise<void> {
+      this.#captureValues();
+      this.#actionBuilderItemType = itemType;
+      await this.render();
+    }
+
+    async pickNpcActionActivityType(type: ActivityType): Promise<void> {
+      this.#captureValues();
+      this.#actionActivityType = type;
+      await this.render();
+    }
+
+    // Drops the nested Activity entirely, back to "no Activity" (dnd5e's own fallback: the item becomes a
+    // passive Trait, `npcActionCategory`) — not a cancel of the whole Action item.
+    async removeNpcActionActivity(): Promise<void> {
+      this.#captureValues();
+      this.#actionActivityType = undefined;
+      this.#actionActivityFieldInputs.clear();
+      this.#actionActivityFieldValues.clear();
+      await this.render();
+    }
+
+    async cancelNpcActionBuilder(): Promise<void> {
+      this.#captureValues();
+      this.#resetNpcActionBuilderState();
+      await this.render();
+    }
+
+    // Reads the Action item's own fields, its optional nested Activity's fields (at most one, M16a Apply
+    // Entscheidung 3), and appends one NpcActionDraft — sent on the next "Create" click alongside every
+    // other draft kind (`createSimple`). Reads straight from the live DOM, the same as `confirmActivity`.
+    async confirmNpcAction(): Promise<void> {
+      const itemType = this.#actionBuilderItemType;
+      if (!itemType) return;
+      const validated = validateName(this.#actionNameInput?.value ?? "");
+      if (!validated.ok) {
+        context.notify("warn", text(validated.reason === "empty" ? "EAGLEHOMEBREW.window.notify.nameEmpty" : "EAGLEHOMEBREW.window.notify.nameTooLong"));
+        return;
+      }
+      const itemFieldValues: Record<string, JsonValue> = {};
+      for (const field of actionItemFields(itemType)) {
+        const value = readFieldValue(field, this.#actionFieldInputs);
+        if (value !== undefined) itemFieldValues[field.path] = value;
+      }
+      let activity: NpcActionDraft["activity"];
+      const activityType = this.#actionActivityType;
+      if (activityType) {
+        const values: Record<string, JsonValue> = {};
+        for (const field of specFor(activityType).fields) {
+          if (field.path === "effects") continue; // no nested Effect for an NPC action (M16a Apply, Entscheidung 3)
+          if (field.widget === "damagePart" || field.widget === "healingPart") {
+            const part = this.#readPart(field.path, this.#actionActivityFieldInputs);
+            if (part) values[field.path] = field.widget === "damagePart" ? [part] : part;
+            continue;
+          }
+          const value = readFieldValue(field, this.#actionActivityFieldInputs);
+          if (value !== undefined) values[field.path] = value;
+        }
+        activity = { type: activityType, values };
+      }
+      this.#actionDrafts = [...this.#actionDrafts, { itemType, name: validated.name, itemFieldValues, activity }];
+      this.#resetNpcActionBuilderState();
+      await this.render();
+    }
+
+    async removeNpcActionDraft(index: number): Promise<void> {
+      this.#captureValues();
+      this.#actionDrafts = this.#actionDrafts.filter((_draft, i) => i !== index);
+      await this.render();
+    }
+
     // Snapshots every input currently on screen into the persisted maps (see their declaration above). Safe to call
     // whenever: a field that is not currently rendered simply is not in `#builderFieldInputs` yet, so there is
     // nothing to read for it.
@@ -1419,6 +1669,9 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
       for (const [path, input] of this.#advancementFieldInputs) this.#advancementFieldValues.set(path, currentValueOf(input));
       if (this.#advancementLevelInput) this.#advancementLevelValue = this.#advancementLevelInput.value;
       for (const [row, rowInputs] of this.#advancementTableInputs) this.#advancementTableValues.set(row, captureAdvancementTableRow(rowInputs));
+      if (this.#actionNameInput) this.#actionNameValue = this.#actionNameInput.value;
+      for (const [path, input] of this.#actionFieldInputs) this.#actionFieldValues.set(path, currentValueOf(input));
+      for (const [path, input] of this.#actionActivityFieldInputs) this.#actionActivityFieldValues.set(path, currentValueOf(input));
     }
 
     #resetBuilderState(): void {
@@ -1464,6 +1717,19 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
       this.#advancementTableRows = [];
       this.#advancementTableInputs.clear();
       this.#advancementTableValues.clear();
+    }
+
+    // M16a
+    #resetNpcActionBuilderState(): void {
+      this.#actionBuilderOpen = false;
+      this.#actionBuilderItemType = undefined;
+      this.#actionNameInput = undefined;
+      this.#actionNameValue = "";
+      this.#actionFieldInputs.clear();
+      this.#actionFieldValues.clear();
+      this.#actionActivityType = undefined;
+      this.#actionActivityFieldInputs.clear();
+      this.#actionActivityFieldValues.clear();
     }
 
     // Shared by `confirmActivity`'s own (optional) triggered effect and `confirmEffect`'s standalone one (M11b),
@@ -1536,12 +1802,15 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
 
     // Reads the four sub-inputs of a damage-/healing-part field (M7 Deploy/rework: `damage.parts` — an array field,
     // wrapped in `[...]` by the caller — and `heal`'s own `healing` — a single object, not wrapped — share this
-    // reader; only the caller decides whether to wrap the result).
-    #readPart(prefix: string): Record<string, JsonValue> | undefined {
-      const number = readNumber(this.#builderFieldInputs.get(`${prefix}#number`) as HTMLInputElement | undefined);
-      const denomination = readNumber(this.#builderFieldInputs.get(`${prefix}#denomination`) as HTMLInputElement | undefined);
-      const bonus = (this.#builderFieldInputs.get(`${prefix}#bonus`) as HTMLInputElement | undefined)?.value.trim() ?? "";
-      const typeList = readList(this.#builderFieldInputs.get(`${prefix}#types`));
+    // reader; only the caller decides whether to wrap the result). `inputs` defaults to the top-level Activity
+    // builder's own map; M16a passes `#actionActivityFieldInputs` for the nested Activity on an NPC Action item —
+    // the same reader, a second map (Deploy generalization, the same treatment `readFieldValue`/`renderFieldWidget`
+    // already got in M8 once a second real use case appeared).
+    #readPart(prefix: string, inputs: ReadonlyMap<string, HTMLInputElement | HTMLSelectElement> = this.#builderFieldInputs): Record<string, JsonValue> | undefined {
+      const number = readNumber(inputs.get(`${prefix}#number`) as HTMLInputElement | undefined);
+      const denomination = readNumber(inputs.get(`${prefix}#denomination`) as HTMLInputElement | undefined);
+      const bonus = (inputs.get(`${prefix}#bonus`) as HTMLInputElement | undefined)?.value.trim() ?? "";
+      const typeList = readList(inputs.get(`${prefix}#types`));
       const part: Record<string, JsonValue> = {};
       if (number !== undefined) part.number = number;
       if (denomination !== undefined) part.denomination = denomination;
@@ -1620,7 +1889,13 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
         // prevents creating one in a Legacy (2014) world (Discover Befund 6), so this is a hint, not a
         // block; the creation above already ran either way.
         if (entry.key === "facilities" && rulesVersion === "2014") context.notify("warn", text("EAGLEHOMEBREW.window.notify.facilityLegacyHint"));
-        if (this.#drafts.length > 0 || this.#effectDrafts.length > 0 || this.#resultDrafts.length > 0 || this.#advancementDrafts.length > 0) {
+        if (
+          this.#drafts.length > 0 ||
+          this.#effectDrafts.length > 0 ||
+          this.#resultDrafts.length > 0 ||
+          this.#advancementDrafts.length > 0 ||
+          this.#actionDrafts.length > 0
+        ) {
           const changes = buildActivitiesChanges(this.#drafts, context.newId, this.#effectDrafts);
           // M13 Apply, Entscheidung 3: `results` is a genuine Foundry EmbeddedCollectionField on
           // RollTable, written the same way `effects` already is above — the whole array under one
@@ -1634,6 +1909,10 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
           // (Discover Befund 9) — each draft becomes its own `system.advancement.<id>` path, merged
           // alongside Activities/Effects/Roll Table entries into the same single `changes` object.
           if (this.#advancementDrafts.length > 0) Object.assign(changes, buildAdvancementChanges(this.#advancementDrafts, context.newId));
+          // M16a Apply, Entscheidung 6: `items` is a genuine Foundry EmbeddedCollectionField on Actor,
+          // the same whole-array write `effects`/`results` above already use, confirmed live by the
+          // M16a spike (`dadm/m16a-spike-1-result-output.md`) before this milestone even started.
+          if (this.#actionDrafts.length > 0) Object.assign(changes, buildNpcActionItemsChanges(this.#actionDrafts, context.newId));
           // Diagnostic for live-check finding 14 (M7 rework Runde 3, dadm/m7-hd-1-output.md): Flight Control
           // rejects the whole document.update payload as soon as one value anywhere in it fails its
           // JSON-serializability check, without saying which one. Mirror that same check here, on the exact object
@@ -1674,6 +1953,8 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
         this.#resetResultBuilderState();
         this.#advancementDrafts = [];
         this.#resetAdvancementBuilderState();
+        this.#actionDrafts = [];
+        this.#resetNpcActionBuilderState();
         await this.render();
       } finally {
         this.#setBusy(false);
@@ -1767,6 +2048,10 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
       // M14: Class/Subclass's own Advancement builder (Apply Entscheidung 6) — keyed off the item kind
       // rather than a new catalog flag, since exactly these two kinds carry `AdvancementTemplate`.
       if (kind === "class" || kind === "subclass") block.append(this.#renderAdvancementSection(kind));
+      // M16a: NPC's own Actions builder (embedded Feat/Weapon items, Discover Befund 1) — its own catalog
+      // flag (`hasActions`), independent of `hasActivities`/`hasEffects` (both correctly `false` for
+      // every Actor kind, `core/catalog.ts`).
+      if (entry.hasActions) block.append(this.#renderNpcActionsSection());
 
       const create = element("button", text("EAGLEHOMEBREW.window.form.create"));
       create.type = "button";
@@ -2223,6 +2508,161 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
       return Object.keys(mapping).length > 0 ? { [key]: mapping } : {};
     }
 
+    // M16a (dadm/m16a-02-apply-output.md): NPC's own Actions builder — the list of already-added drafts,
+    // then either the "Add Action" button, the item-type picker (Feat/Weapon), or the sub-form for the
+    // chosen type. Same list-then-button-or-form shape as `#renderActivitySection`, one extra picker step
+    // (Item type) before the Activity type/fields, since an Action is an Item that optionally carries one.
+    #renderNpcActionsSection(): HTMLElement {
+      const section = element("fieldset");
+      section.append(element("legend", text("EAGLEHOMEBREW.window.action.legend")));
+
+      if (this.#actionDrafts.length > 0) {
+        const list = element("ul");
+        list.classList.add("eagle-homebrew-action-drafts");
+        this.#actionDrafts.forEach((draft, index) => {
+          const item = element("li");
+          const itemTypeLabel = text(draft.itemType === "feat" ? "EAGLEHOMEBREW.window.action.itemTypeFeat" : "EAGLEHOMEBREW.window.action.itemTypeWeapon");
+          const category = npcActionCategory(
+            npcActionDraftHasTraitProperty(draft.itemFieldValues),
+            typeof draft.activity?.values["activation.type"] === "string" ? (draft.activity.values["activation.type"] as string) : undefined,
+          );
+          item.append(document.createTextNode(`${draft.name} (${itemTypeLabel}, ${text(NPC_ACTION_CATEGORY_LABEL_KEY[category])})`));
+          const remove = element("button", text("EAGLEHOMEBREW.window.activity.remove"));
+          remove.type = "button";
+          remove.dataset.action = "removeNpcActionDraft";
+          remove.dataset.index = String(index);
+          item.append(document.createTextNode(" "), remove);
+          list.append(item);
+        });
+        section.append(list);
+      }
+
+      if (!this.#actionBuilderOpen) {
+        const addAction = element("button", text("EAGLEHOMEBREW.window.action.addAction"));
+        addAction.type = "button";
+        addAction.dataset.action = "addNpcAction";
+        section.append(addAction);
+        return section;
+      }
+
+      if (!this.#actionBuilderItemType) {
+        section.append(this.#renderNpcActionItemTypePicker());
+        return section;
+      }
+
+      section.append(this.#renderNpcActionBuilder(this.#actionBuilderItemType));
+      return section;
+    }
+
+    #renderNpcActionItemTypePicker(): HTMLElement {
+      const block = element("div");
+      block.append(element("p", text("EAGLEHOMEBREW.window.action.pickItemType")));
+      const feat = element("button", text("EAGLEHOMEBREW.window.action.itemTypeFeat"));
+      feat.type = "button";
+      feat.dataset.action = "pickNpcActionItemType";
+      feat.dataset.itemType = "feat";
+      const weapon = element("button", text("EAGLEHOMEBREW.window.action.itemTypeWeapon"));
+      weapon.type = "button";
+      weapon.dataset.action = "pickNpcActionItemType";
+      weapon.dataset.itemType = "weapon";
+      block.append(feat, weapon);
+      const cancel = element("button", text("EAGLEHOMEBREW.window.activity.cancel"));
+      cancel.type = "button";
+      cancel.dataset.action = "cancelNpcAction";
+      block.append(cancel);
+      return block;
+    }
+
+    #renderNpcActionBuilder(itemType: NpcActionItemType): HTMLElement {
+      const block = element("div");
+      this.#actionFieldInputs.clear();
+      const name = fields.createTextInput({ name: "__actionName", value: this.#actionNameValue, placeholder: text("EAGLEHOMEBREW.window.form.namePlaceholder") });
+      this.#actionNameInput = name;
+      block.append(fields.createFormGroup({ label: text("EAGLEHOMEBREW.window.form.nameLabel"), input: name }));
+
+      let propertiesInput: HTMLInputElement | HTMLSelectElement | undefined;
+      for (const field of actionItemFields(itemType)) {
+        const input = renderFieldWidget(field, this.#actionFieldValues.get(field.path), this.#actionFieldInputs);
+        block.append(fields.createFormGroup({ label: itemFieldLabel(itemType, field), input }));
+        if (field.path === "properties") propertiesInput = input as HTMLInputElement;
+      }
+
+      block.append(this.#renderNpcActionActivityBlock());
+
+      const previewLine = element("p");
+      previewLine.classList.add("eagle-homebrew-action-preview");
+      block.append(previewLine);
+      this.#wireNpcActionCategoryPreview(previewLine, itemType, propertiesInput, this.#actionActivityFieldInputs.get("activation.type"));
+
+      const confirm = element("button", text("EAGLEHOMEBREW.window.action.confirm"));
+      confirm.type = "button";
+      confirm.dataset.action = "confirmNpcAction";
+      const cancel = element("button", text("EAGLEHOMEBREW.window.activity.cancel"));
+      cancel.type = "button";
+      cancel.dataset.action = "cancelNpcAction";
+      block.append(confirm, document.createTextNode(" "), cancel);
+      return block;
+    }
+
+    // The nested, at-most-one Activity (M16a Apply, Entscheidung 3): no type picked yet shows the five
+    // type buttons (like `#renderActivityTypePicker`, but no "Cancel" — leaving it at "no Activity" is
+    // itself a valid, meaningful choice, dnd5e's own Trait fallback); a type picked shows its basic/
+    // advanced fields (`#renderActivityFieldGroup`, reused with this Action's own maps) plus a "Remove
+    // Activity" button to go back. No nested Effect toggle here (Non-Goal, see `core/npc-action-model.ts`).
+    #renderNpcActionActivityBlock(): HTMLElement {
+      const wrapper = element("div");
+      wrapper.append(element("h4", text("EAGLEHOMEBREW.window.action.activityHeading")));
+      if (!this.#actionActivityType) {
+        wrapper.append(element("p", text("EAGLEHOMEBREW.window.action.noActivityHint")));
+        for (const type of ACTIVITY_TYPES_ORDER) {
+          const button = element("button", text(ACTIVITY_TYPE_LABEL_KEY[type]));
+          button.type = "button";
+          button.dataset.action = "pickNpcActionActivityType";
+          button.dataset.type = type;
+          wrapper.append(button);
+        }
+        return wrapper;
+      }
+      this.#actionActivityFieldInputs.clear();
+      const spec = specFor(this.#actionActivityType);
+      const basic = spec.fields.filter((field) => field.group === "basic" && field.path !== "effects");
+      const advanced = spec.fields.filter((field) => field.group === "advanced" && field.path !== "effects");
+      for (const field of basic) wrapper.append(this.#renderActivityFieldGroup(field, this.#actionActivityFieldValues, this.#actionActivityFieldInputs));
+      if (advanced.length > 0) {
+        const details = element("details");
+        details.append(element("summary", text("EAGLEHOMEBREW.window.activity.moreFields")));
+        for (const field of advanced) details.append(this.#renderActivityFieldGroup(field, this.#actionActivityFieldValues, this.#actionActivityFieldInputs));
+        wrapper.append(details);
+      }
+      const removeActivity = element("button", text("EAGLEHOMEBREW.window.action.removeActivity"));
+      removeActivity.type = "button";
+      removeActivity.dataset.action = "removeNpcActionActivity";
+      wrapper.append(removeActivity);
+      return wrapper;
+    }
+
+    // Live "Erscheint als: ..." feedback (M16a Apply, Entscheidung 4), an exact mirror of dnd5e's own
+    // categorization (`npcActionCategory`) — a direct "change" listener on the two fields that actually
+    // feed it, the same no-full-re-render technique `#wireConditionalVisibility`/the damage-formula
+    // toggles already use elsewhere in this file, so switching Properties or the Activity's own
+    // activation type never disturbs the rest of the in-progress form.
+    #wireNpcActionCategoryPreview(
+      previewLine: HTMLElement,
+      itemType: NpcActionItemType,
+      propertiesInput: HTMLInputElement | HTMLSelectElement | undefined,
+      activationInput: HTMLInputElement | HTMLSelectElement | undefined,
+    ): void {
+      const refresh = (): void => {
+        const hasTrait = itemType === "feat" && readList(propertiesInput).includes("trait");
+        const activation = typeof activationInput?.value === "string" ? activationInput.value : undefined;
+        const category = npcActionCategory(hasTrait, activation || undefined);
+        previewLine.textContent = text("EAGLEHOMEBREW.window.action.preview", { category: text(NPC_ACTION_CATEGORY_LABEL_KEY[category]) });
+      };
+      refresh();
+      propertiesInput?.addEventListener("change", refresh);
+      activationInput?.addEventListener("change", refresh);
+    }
+
     // M11c (dadm/m11c-02-apply-output.md, Entscheidung 2): one change row, shared by the nested Activity-effect
     // toggle (`#renderEffectSection`) and the standalone builder (`#renderStandaloneEffectFields`) — unlike the
     // rest of those two methods, this piece is genuinely shared, not duplicated: the curated picker's toggle
@@ -2348,14 +2788,25 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
       return block;
     }
 
-    #renderActivityFieldGroup(field: ActivityField): HTMLElement {
-      if (field.widget === "damagePart" || field.widget === "healingPart") return this.#renderPartField(field);
-      const input = this.#renderActivityWidget(field);
+    // `values`/`inputs` default to the top-level Activity builder's own maps; M16a passes
+    // `#actionActivityFieldValues`/`#actionActivityFieldInputs` for the nested Activity on an NPC Action
+    // item — the same rendering, a second pair of maps (Deploy generalization, mirroring `#readPart`'s own).
+    #renderActivityFieldGroup(
+      field: ActivityField,
+      values: ReadonlyMap<string, string | boolean | string[]> = this.#builderValues,
+      inputs: Map<string, HTMLInputElement | HTMLSelectElement> = this.#builderFieldInputs,
+    ): HTMLElement {
+      if (field.widget === "damagePart" || field.widget === "healingPart") return this.#renderPartField(field, values, inputs);
+      const input = this.#renderActivityWidget(field, values, inputs);
       return fields.createFormGroup({ label: labelFor(field), input });
     }
 
-    #renderActivityWidget(field: ActivityField): HTMLElement {
-      return renderFieldWidget(field, this.#builderValues.get(field.path), this.#builderFieldInputs);
+    #renderActivityWidget(
+      field: ActivityField,
+      values: ReadonlyMap<string, string | boolean | string[]> = this.#builderValues,
+      inputs: Map<string, HTMLInputElement | HTMLSelectElement> = this.#builderFieldInputs,
+    ): HTMLElement {
+      return renderFieldWidget(field, values.get(field.path), inputs);
     }
 
     // The four sub-fields of one DamageData (M4 Discover Befund 3): shared by `damage.parts` (an array field, one
@@ -2367,12 +2818,16 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
     // multi-select was never the cause (the real cause: `createSimple` reusing one mutated `changes` reference
     // across two calls, fixed there, dadm/m7-hd-1-output.md) — reverted back to the multi-select on the project
     // lead's instruction once the actual cause was confirmed.
-    #renderPartField(field: ActivityField): HTMLElement {
+    #renderPartField(
+      field: ActivityField,
+      values: ReadonlyMap<string, string | boolean | string[]> = this.#builderValues,
+      inputs: Map<string, HTMLInputElement | HTMLSelectElement> = this.#builderFieldInputs,
+    ): HTMLElement {
       const prefix = field.path;
-      const rawNumber = this.#builderValues.get(`${prefix}#number`);
-      const rawDenomination = this.#builderValues.get(`${prefix}#denomination`);
-      const persistedBonus = this.#builderValues.get(`${prefix}#bonus`);
-      const persistedTypes = this.#builderValues.get(`${prefix}#types`);
+      const rawNumber = values.get(`${prefix}#number`);
+      const rawDenomination = values.get(`${prefix}#denomination`);
+      const persistedBonus = values.get(`${prefix}#bonus`);
+      const persistedTypes = values.get(`${prefix}#types`);
       const block = element("div");
       const number = fields.createNumberInput({ name: `${prefix}#number`, value: persistedNumber(rawNumber) });
       const denomination = fields.createNumberInput({ name: `${prefix}#denomination`, value: persistedNumber(rawDenomination) });
@@ -2386,10 +2841,10 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
       } else {
         types = fields.createTextInput({ name: `${prefix}#types`, value: persistedTypeList.join(", "), placeholder: "fire, cold" });
       }
-      this.#builderFieldInputs.set(`${prefix}#number`, number);
-      this.#builderFieldInputs.set(`${prefix}#denomination`, denomination);
-      this.#builderFieldInputs.set(`${prefix}#bonus`, bonus);
-      this.#builderFieldInputs.set(`${prefix}#types`, types);
+      inputs.set(`${prefix}#number`, number);
+      inputs.set(`${prefix}#denomination`, denomination);
+      inputs.set(`${prefix}#bonus`, bonus);
+      inputs.set(`${prefix}#types`, types);
       block.append(
         fields.createFormGroup({ label: text("EAGLEHOMEBREW.window.activity.field.damageNumber"), input: number }),
         fields.createFormGroup({ label: text("EAGLEHOMEBREW.window.activity.field.damageDenomination"), input: denomination }),
@@ -2413,7 +2868,21 @@ export function createHomebrewApplicationClass(context: HomebrewWindowContext) {
       // `advancement`/`startingEquipment` fields (both section "advanced") silently never rendered at
       // all, found while implementing the M11 live-check rework (no unit test covers this v13-only
       // rendering order; core/ only tests that the field spec itself carries the right section).
-      const order: readonly ItemField["section"][] = ["core", "uses", "physical", "description", "equippable", "mountable", "advanced"];
+      const order: readonly ItemField["section"][] = [
+        "core",
+        "abilityScores",
+        "skills",
+        "combat",
+        "movement",
+        "senses",
+        "resistances",
+        "uses",
+        "physical",
+        "description",
+        "equippable",
+        "mountable",
+        "advanced",
+      ];
       // M8a: fields with a `visibleWhen` get their element remembered here, so `#wireConditionalVisibility` can
       // apply and keep updating it after every relevant field in the whole form has been rendered (a condition
       // like Reach's can depend on `type.value`, rendered in the "core" section before Reach's own "core" entry,

@@ -19,7 +19,24 @@ import type { ChoicesKind } from "./activity-model";
 // `startingEquipment` — each its own complex sub-system, comparable in scope to Activities, M5-M7) —
 // named after Activities' own "advanced" group (M5-M7) for the same reason: visibly set apart from
 // the normal form, not a field to fill in casually (dadm/m11-02-apply-output.md, Entscheidung 3).
-export type ItemFieldSection = "core" | "physical" | "description" | "equippable" | "mountable" | "uses" | "advanced";
+// M16 live-check rework: NPC's ~48 fields, all in one "core" section, read as an undifferentiated wall
+// of fields (project lead, live-check feedback) — five new, NPC-only sections split it the same way
+// "uses"/"mountable" already split off Consumable's/Weapon's own less-common fields, so a much larger
+// kind gets the same treatment rather than a one-off mechanism.
+export type ItemFieldSection =
+  | "core"
+  | "physical"
+  | "description"
+  | "equippable"
+  | "mountable"
+  | "uses"
+  | "advanced"
+  | "abilityScores"
+  | "skills"
+  | "combat"
+  | "movement"
+  | "senses"
+  | "resistances";
 
 // "weaponDamagePart": Weapon's own damage.base/damage.versatile (dnd5e's shared DamageData, data/shared/
 // damage-field.mjs) — a superset of Activities' damagePart widget (number/denomination/bonus/types) that also
@@ -121,7 +138,7 @@ export function weaponHasReach(context: ItemFieldVisibilityContext): boolean {
   return context.typeValue === "siege" || weaponAttackType(context.typeValue) !== "ranged";
 }
 
-export type ItemKind = "tool" | "weapon" | "equipment" | "consumable" | "container" | "feat" | "background" | "spell" | "species" | "class" | "subclass" | "facility";
+export type ItemKind = "tool" | "weapon" | "equipment" | "consumable" | "container" | "feat" | "background" | "spell" | "species" | "class" | "subclass" | "facility" | "npc";
 
 export interface ItemKindSpec {
   readonly kind: ItemKind;
@@ -501,6 +518,88 @@ const FACILITY_FIELDS: readonly ItemField[] = [
   ...DESCRIPTION_FIELDS,
 ];
 
+// M16: the six ability scores/save proficiencies and eighteen skill proficiencies (Discover Befund 2)
+// share one shape each — written out from a short key list rather than eighteen near-identical literal
+// lines, the same "small, fixed table" treatment M10's `currency.*` already got, just built once instead
+// of copied by hand.
+const ABILITY_KEYS = ["str", "dex", "con", "int", "wis", "cha"];
+const SKILL_KEYS = ["acr", "ani", "arc", "ath", "dec", "his", "ins", "itm", "inv", "med", "nat", "prc", "prf", "per", "rel", "slt", "ste", "sur"];
+
+// M16 (dadm/m16-02-apply-output.md, Entscheidung 1): NPC is the first Actor kind with a full field
+// model — the mechanism itself (`buildItemFieldData`/`buildPathData`, `#renderItemFieldSections`) never
+// assumed an Item, only ever nested flat paths under `system.*`, so it applies unchanged (Entscheidung
+// 5: no separate "Actor kind" structure introduced for this). Movement/Senses/CreatureType are the
+// exact same field groups Species (M12) already has, just under `attributes.*` instead of the item's
+// own root. `DESCRIPTION_FIELDS` is **not** spread here — that array is Item-specific
+// (`identified`/`description.*`, from `ItemDescriptionTemplate`), which NPCData does not have; its own
+// equivalent is `details.biography.*`, listed explicitly below. Actions/Legendary Actions and `tools`
+// (Human Decision `m16-hd-1-output.md`, Entscheidungen 1-2) are deliberately absent — Non-Goals for
+// M16, vorgesehen für M16a.
+//
+// M16 live-check rework: ~48 fields in one flat "core" section read as an undifferentiated wall of
+// fields (project lead) — split across six sections (`abilityScores`/`skills`/`combat`/`movement`/
+// `senses`/`resistances`, plus `core`/`description` for identity and roleplay text), the same
+// treatment "uses"/"mountable" already give Consumable's/Weapon's own less-common fields, just for a
+// much larger kind. Also converted `abilities.<key>.proficient` and `skills.<key>.value` from a bare
+// number input to a `select` — dnd5e already ships exactly the right catalogs for both
+// (`weaponAndArmorProficiencyLevels`, a plain 0/1 map; `proficiencyLevels`, 0/0.5/1/2) — the same
+// "value-keyed select" shape M12's `prepared` field already established for Spell, reused here as-is
+// (no new mechanism, `readFieldValue`'s existing default branch already round-trips a numeric string
+// into dnd5e's `NumberField` correctly, confirmed live by `prepared` in M12).
+const NPC_FIELDS: readonly ItemField[] = [
+  ...ABILITY_KEYS.flatMap((key): ItemField[] => [
+    { path: `abilities.${key}.value`, section: "abilityScores", widget: "number" },
+    { path: `abilities.${key}.proficient`, section: "abilityScores", widget: "select", choicesKind: "saveProficiencyLevels" },
+  ]),
+  ...SKILL_KEYS.map((key): ItemField => ({ path: `skills.${key}.value`, section: "skills", widget: "select", choicesKind: "proficiencyLevels" })),
+  { path: "traits.size", section: "core", widget: "select", choicesKind: "actorSizes" },
+  { path: "details.type.value", section: "core", widget: "select", choicesKind: "creatureTypes" },
+  { path: "details.type.subtype", section: "core", widget: "text" },
+  { path: "details.type.custom", section: "core", widget: "text" },
+  { path: "details.cr", section: "core", widget: "number" },
+  { path: "details.alignment", section: "description", widget: "text" },
+  { path: "details.ideal", section: "description", widget: "text" },
+  { path: "details.bond", section: "description", widget: "text" },
+  { path: "details.flaw", section: "description", widget: "text" },
+  { path: "details.biography.value", section: "description", widget: "text" },
+  { path: "details.biography.public", section: "description", widget: "text" },
+  { path: "attributes.ac.calc", section: "combat", widget: "select", choicesKind: "armorClassCalculations" },
+  { path: "attributes.ac.flat", section: "combat", widget: "number" },
+  { path: "attributes.ac.formula", section: "combat", widget: "formula" },
+  { path: "attributes.hp.formula", section: "combat", widget: "formula" },
+  { path: "attributes.init.bonus", section: "combat", widget: "formula" },
+  { path: "attributes.attunement.max", section: "combat", widget: "number" },
+  { path: "attributes.exhaustion", section: "combat", widget: "number" },
+  { path: "attributes.spellcasting", section: "combat", widget: "select", choicesKind: "abilities" },
+  { path: "resources.legact.max", section: "combat", widget: "number" },
+  { path: "resources.legres.max", section: "combat", widget: "number" },
+  { path: "resources.lair.value", section: "combat", widget: "checkbox" },
+  { path: "resources.lair.initiative", section: "combat", widget: "number" },
+  { path: "resources.lair.inside", section: "combat", widget: "checkbox" },
+  { path: "attributes.movement.walk", section: "movement", widget: "formula" },
+  { path: "attributes.movement.burrow", section: "movement", widget: "formula" },
+  { path: "attributes.movement.climb", section: "movement", widget: "formula" },
+  { path: "attributes.movement.fly", section: "movement", widget: "formula" },
+  { path: "attributes.movement.swim", section: "movement", widget: "formula" },
+  { path: "attributes.movement.units", section: "movement", widget: "select", choicesKind: "movementUnits" },
+  { path: "attributes.senses.ranges.darkvision", section: "senses", widget: "number" },
+  { path: "attributes.senses.ranges.blindsight", section: "senses", widget: "number" },
+  { path: "attributes.senses.ranges.tremorsense", section: "senses", widget: "number" },
+  { path: "attributes.senses.ranges.truesight", section: "senses", widget: "number" },
+  { path: "attributes.senses.units", section: "senses", widget: "select", choicesKind: "movementUnits" },
+  { path: "attributes.senses.special", section: "senses", widget: "text" },
+  { path: "traits.di.value", section: "resistances", widget: "set", choicesKind: "damageTypes" },
+  { path: "traits.di.custom", section: "resistances", widget: "text" },
+  { path: "traits.dr.value", section: "resistances", widget: "set", choicesKind: "damageTypes" },
+  { path: "traits.dr.custom", section: "resistances", widget: "text" },
+  { path: "traits.dv.value", section: "resistances", widget: "set", choicesKind: "damageTypes" },
+  { path: "traits.dv.custom", section: "resistances", widget: "text" },
+  { path: "traits.ci.value", section: "resistances", widget: "set", choicesKind: "effectConditions" },
+  { path: "traits.ci.custom", section: "resistances", widget: "text" },
+  { path: "traits.languages.value", section: "resistances", widget: "set", choicesKind: "effectLanguages" },
+  { path: "traits.languages.custom", section: "resistances", widget: "text" },
+];
+
 export const ITEM_KIND_SPECS: readonly ItemKindSpec[] = Object.freeze([
   Object.freeze({ kind: "tool", fields: Object.freeze(TOOL_FIELDS) }),
   Object.freeze({ kind: "weapon", fields: Object.freeze(WEAPON_FIELDS) }),
@@ -514,6 +613,7 @@ export const ITEM_KIND_SPECS: readonly ItemKindSpec[] = Object.freeze([
   Object.freeze({ kind: "class", fields: Object.freeze(CLASS_FIELDS) }),
   Object.freeze({ kind: "subclass", fields: Object.freeze(SUBCLASS_FIELDS) }),
   Object.freeze({ kind: "facility", fields: Object.freeze(FACILITY_FIELDS) }),
+  Object.freeze({ kind: "npc", fields: Object.freeze(NPC_FIELDS) }),
 ]);
 
 export function specForItemKind(kind: ItemKind): ItemKindSpec {
