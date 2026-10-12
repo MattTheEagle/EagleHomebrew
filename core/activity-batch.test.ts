@@ -49,6 +49,36 @@ describe("buildActivitiesChanges", () => {
     expect(changes["system.activities.id2"]).toMatchObject({ type: "heal" });
   });
 
+  it("M20: writes conditional additional damage as a second, native dnd5e Activity", () => {
+    const changes = buildActivitiesChanges([
+      { type: "attack", values: { "activation.type": "action", "damage.parts": [{ number: 1, denomination: 8, types: ["slashing"] }] } },
+      {
+        type: "damage",
+        values: {
+          name: "Undead Fire Damage",
+          "activation.type": "action",
+          "activation.condition": "Only against undead",
+          "damage.parts": [{ number: 2, denomination: 6, types: ["fire"] }],
+        },
+      },
+    ], idSequence());
+
+    expect(changes).toEqual({
+      "system.activities.id1": {
+        type: "attack",
+        activation: { type: "action" },
+        damage: { parts: [{ number: 1, denomination: 8, types: ["slashing"] }] },
+      },
+      "system.activities.id2": {
+        type: "damage",
+        name: "Undead Fire Damage",
+        activation: { type: "action", condition: "Only against undead" },
+        damage: { parts: [{ number: 2, denomination: 6, types: ["fire"] }] },
+      },
+    });
+    expect(JSON.stringify(changes)).not.toContain("eagle-");
+  });
+
   it("collects the effects of several drafts into one shared effects array, in draft order", () => {
     const drafts: ActivityDraft[] = [
       { type: "check", values: {}, effect: { name: "First", changes: [] } },

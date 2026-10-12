@@ -8,6 +8,7 @@ import { buildAdvancementData, type AdvancementType } from "./advancement-model"
 // `ScaleValue.scale`, `Trait.choices` — built in v13/homebrew-application.ts, since assembling it needs
 // reading several small per-row inputs, not a single flat path).
 export interface AdvancementDraft {
+  readonly id?: string;
   readonly type: AdvancementType;
   readonly level?: number;
   readonly values: Readonly<Record<string, JsonValue>>;
@@ -20,7 +21,7 @@ export interface AdvancementDraft {
 export function buildAdvancementChanges(drafts: readonly AdvancementDraft[], newId: () => string): Record<string, JsonValue> {
   const changes: Record<string, JsonValue> = {};
   for (const draft of drafts) {
-    const id = newId();
+    const id = draft.id ?? newId();
     changes[`system.advancement.${id}`] = buildAdvancementData(draft.type, draft.level, draft.values, draft.table ?? {});
   }
   return changes;

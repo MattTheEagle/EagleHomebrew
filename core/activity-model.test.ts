@@ -16,10 +16,11 @@ describe("ACTIVITY_TYPES", () => {
     }
   });
 
-  it("marks name and activation.type as basic (always visible, M5 Apply Option c)", () => {
+  it("marks name, activation type, and the manual condition as basic (always visible)", () => {
     for (const spec of ACTIVITY_TYPES) {
       expect(spec.fields.find((field) => field.path === "name")?.group).toBe("basic");
       expect(spec.fields.find((field) => field.path === "activation.type")?.group).toBe("basic");
+      expect(spec.fields.find((field) => field.path === "activation.condition")?.group).toBe("basic");
     }
   });
 
@@ -105,9 +106,13 @@ describe("buildActivityData", () => {
     });
   });
 
-  it("keeps a ready-made array value for a list-widget field untouched", () => {
+  it("keeps a ready-made damage array and native manual condition untouched", () => {
     const parts = [{ number: 2, denomination: 6, bonus: "", types: ["fire"] }];
-    expect(buildActivityData("damage", { "damage.parts": parts })).toEqual({ type: "damage", damage: { parts } });
+    expect(buildActivityData("damage", { "activation.condition": "Only against undead", "damage.parts": parts })).toEqual({
+      type: "damage",
+      activation: { condition: "Only against undead" },
+      damage: { parts },
+    });
   });
 
   it("merges several dotted values that share a prefix, as buildPathData does", () => {

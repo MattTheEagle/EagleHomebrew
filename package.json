@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Eagle Homebrew: the editor for homebrew content in the Eagle modules. Early development; for now it only registers with Eagle Flight Control.",
+  "description": "Foundry VTT editor for creating paired world and Eagle Library homebrew documents.",
   "scripts": {
     "build:v13": "esbuild v13/module.ts --bundle --format=esm --outfile=v13/dist/module.js",
     "build": "npm run build:v13",

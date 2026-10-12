@@ -6,12 +6,13 @@ import type { ChoicesKind } from "./activity-model";
 // built the same way core/activity-model.ts (M5) and core/item-field-model.ts (M8) already are — a
 // deliberately separate type from both (M8 Apply Entscheidung 1: no shared supertype, a small,
 // intentional duplication of the {path, widget, choicesKind} shape rather than a forced common base).
-// `Size` is left out entirely: its `validItemTypes` is `race`-only (m14-01-discover-output.md, Befund 7),
-// never offered for Class or Subclass. `value` (an advancement's per-character runtime state, e.g. which
+// M16b extends the builder to Feat, Background and Species. `value` (an advancement's per-character runtime state, e.g. which
 // ability scores a player actually picked) never appears anywhere here — Homebrew only ever builds a
 // fresh compendium/world template, which has none yet (Apply Entscheidung 6).
 
-export type AdvancementType = "HitPoints" | "AbilityScoreImprovement" | "Subclass" | "ItemGrant" | "ItemChoice" | "ScaleValue" | "Trait";
+export type AdvancementKind = "class" | "subclass" | "feat" | "background" | "species";
+
+export type AdvancementType = "HitPoints" | "AbilityScoreImprovement" | "Subclass" | "ItemGrant" | "ItemChoice" | "ScaleValue" | "Size" | "Trait";
 
 export type AdvancementFieldWidget = "text" | "number" | "select" | "checkbox" | "formula" | "set" | "list" | "documentPicker" | "documentPickerMulti";
 
@@ -23,14 +24,10 @@ export interface AdvancementField {
 
 export interface AdvancementTypeSpec {
   readonly type: AdvancementType;
-  // Which of Homebrew's two Advancement-carrying kinds may add this type (m14-01-discover-output.md,
-  // Befund 7 / `CONFIG.DND5E.advancementTypes[*].validItemTypes`, restricted to the two kinds this
-  // module builds — `AbilityScoreImprovement`'s real dnd5e list also includes `background`/`race`/`feat`,
-  // irrelevant here since Homebrew has no Advancement builder for those kinds).
-  readonly validKinds: readonly ("class" | "subclass")[];
-  // `HitPoints` is dnd5e's one `multiLevel` type here (applies at every level, not a single one) — its
-  // `level` field is left `undefined` and never rendered (base-advancement.mjs: `initial: undefined` when
-  // `multiLevel`, vs. `0` otherwise).
+  // Homebrew names dnd5e's `race` kind `species`; the other four names match the system directly.
+  readonly validKinds: readonly AdvancementKind[];
+  // `HitPoints`, `ItemChoice` and `ScaleValue` are dnd5e multi-level types; Size always applies at level 0.
+  // None of them gets the separate single-level input. ItemChoice/ScaleValue carry levels in their own tables.
   readonly hasLevel: boolean;
   // Flat, scalar `configuration.*` fields (see also ADVANCEMENT_TABLES in v13/homebrew-application.ts for
   // the three per-type nested tables — `ItemChoice.choices`, `ScaleValue.scale`, `Trait.choices` — which
@@ -43,7 +40,7 @@ const RAW_ADVANCEMENT_TYPES: readonly AdvancementTypeSpec[] = [
   { type: "HitPoints", validKinds: ["class"], hasLevel: false, fields: [] },
   {
     type: "AbilityScoreImprovement",
-    validKinds: ["class"],
+    validKinds: ["class", "feat", "background", "species"],
     hasLevel: true,
     fields: [
       { path: "points", widget: "number" },
@@ -60,7 +57,7 @@ const RAW_ADVANCEMENT_TYPES: readonly AdvancementTypeSpec[] = [
   { type: "Subclass", validKinds: ["class"], hasLevel: true, fields: [] },
   {
     type: "ItemGrant",
-    validKinds: ["class", "subclass"],
+    validKinds: ["class", "subclass", "feat", "background", "species"],
     hasLevel: true,
     fields: [
       { path: "items", widget: "documentPickerMulti" },
@@ -71,22 +68,23 @@ const RAW_ADVANCEMENT_TYPES: readonly AdvancementTypeSpec[] = [
   },
   {
     type: "ItemChoice",
-    validKinds: ["class", "subclass"],
-    hasLevel: true,
+    validKinds: ["class", "subclass", "feat", "background", "species"],
+    hasLevel: false,
     fields: [
       { path: "pool", widget: "documentPickerMulti" },
       { path: "allowDrops", widget: "checkbox" },
-      { path: "restriction.type", widget: "text" },
-      { path: "restriction.subtype", widget: "text" },
-      { path: "restriction.level", widget: "text" },
-      { path: "restriction.list", widget: "list" },
+      { path: "type", widget: "select", choicesKind: "advancementItemTypes" },
+      { path: "restriction.type", widget: "select", choicesKind: "featureTypes" },
+      { path: "restriction.subtype", widget: "select" },
+      { path: "restriction.level", widget: "select", choicesKind: "advancementSpellLevels" },
+      { path: "restriction.list", widget: "set", choicesKind: "advancementSpellLists" },
       { path: "spell", widget: "list" },
     ],
   },
   {
     type: "ScaleValue",
-    validKinds: ["class", "subclass"],
-    hasLevel: true,
+    validKinds: ["class", "subclass", "feat", "background", "species"],
+    hasLevel: false,
     fields: [
       { path: "identifier", widget: "text" },
       { path: "type", widget: "select", choicesKind: "scaleValueTypes" },
@@ -94,8 +92,14 @@ const RAW_ADVANCEMENT_TYPES: readonly AdvancementTypeSpec[] = [
     ],
   },
   {
+    type: "Size",
+    validKinds: ["species"],
+    hasLevel: false,
+    fields: [{ path: "sizes", widget: "set", choicesKind: "actorSizes" }],
+  },
+  {
     type: "Trait",
-    validKinds: ["class", "subclass"],
+    validKinds: ["class", "subclass", "feat", "background", "species"],
     hasLevel: true,
     fields: [
       // No curated target catalog here (Apply Entscheidung 8): M11c's picker is for ActiveEffect change
@@ -119,8 +123,39 @@ export function specForAdvancement(type: AdvancementType): AdvancementTypeSpec {
   return spec;
 }
 
-export function advancementTypesFor(kind: "class" | "subclass"): readonly AdvancementType[] {
-  return ADVANCEMENT_TYPES.filter((entry) => entry.validKinds.includes(kind)).map((entry) => entry.type);
+export function isAdvancementKind(kind: string): kind is AdvancementKind {
+  return kind === "class" || kind === "subclass" || kind === "feat" || kind === "background" || kind === "species";
+}
+
+export function advancementTypesFor(kind: AdvancementKind, selectedTypes: readonly AdvancementType[] = []): readonly AdvancementType[] {
+  return ADVANCEMENT_TYPES.filter((entry) => entry.validKinds.includes(kind) && (entry.type !== "Size" || !selectedTypes.includes("Size"))).map(
+    (entry) => entry.type,
+  );
+}
+
+// ItemChoice has an item type plus different restrictions for Feature and Spell choices. Hidden values are removed
+// before data building so switching the type cannot leave a stale, technically valid but misleading configuration.
+export function normalizeAdvancementFieldValues(
+  type: AdvancementType,
+  values: Readonly<Record<string, JsonValue>>,
+): Record<string, JsonValue> {
+  const normalized = { ...values };
+  if (type !== "ItemChoice") return normalized;
+  const itemType = typeof normalized.type === "string" ? normalized.type : "";
+  if (itemType !== "feat") {
+    delete normalized["restriction.type"];
+    delete normalized["restriction.subtype"];
+  }
+  if (itemType !== "spell") {
+    delete normalized["restriction.level"];
+    delete normalized["restriction.list"];
+    delete normalized.spell;
+  }
+  return normalized;
+}
+
+export function validSizeSelection(values: Readonly<Record<string, JsonValue>>): boolean {
+  return Array.isArray(values.sizes) && values.sizes.some((value) => typeof value === "string" && value !== "");
 }
 
 // Builds one Advancement's `configuration` object from its flat form values (path -> value), the same
@@ -145,8 +180,8 @@ export function buildAdvancementData(
   fieldValues: Readonly<Record<string, JsonValue>>,
   tables: Readonly<Record<string, JsonValue>> = {},
 ): Record<string, JsonValue> {
-  const configuration = { ...buildAdvancementConfiguration(fieldValues), ...tables };
   const spec = specForAdvancement(type);
+  const configuration = { ...buildAdvancementConfiguration(normalizeAdvancementFieldValues(type, fieldValues)), ...tables };
   return {
     type,
     ...(spec.hasLevel && level !== undefined ? { level } : {}),

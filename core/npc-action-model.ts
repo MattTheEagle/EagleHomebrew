@@ -67,10 +67,11 @@ export function npcActionCategory(hasTraitProperty: boolean, firstActivationType
 // this milestone; a standalone Effect builder for NPCs remains its own future milestone, same as it was
 // for every other kind before M11b).
 export interface NpcActionDraft {
+  readonly id?: string;
   readonly itemType: NpcActionItemType;
   readonly name: string;
   readonly itemFieldValues: Readonly<Record<string, JsonValue>>;
-  readonly activity?: { readonly type: ActivityType; readonly values: Readonly<Record<string, JsonValue>> };
+  readonly activity?: { readonly id?: string; readonly type: ActivityType; readonly values: Readonly<Record<string, JsonValue>> };
 }
 
 // M16a Apply, Entscheidung 6: one `document.update` `changes.items` entry per draft (a whole-array
@@ -80,10 +81,10 @@ export interface NpcActionDraft {
 export function buildNpcActionItemsChanges(drafts: readonly NpcActionDraft[], newId: () => string): Record<string, JsonValue> {
   if (drafts.length === 0) return {};
   const items: JsonValue[] = drafts.map((draft) => {
-    const itemId = newId();
+    const itemId = draft.id ?? newId();
     const system: Record<string, JsonValue> = buildItemFieldData(draft.itemFieldValues);
     if (draft.activity) {
-      const activityId = newId();
+      const activityId = draft.activity.id ?? newId();
       system.activities = { [activityId]: buildActivityData(draft.activity.type, draft.activity.values) };
     }
     return { _id: itemId, name: draft.name, type: draft.itemType, system };

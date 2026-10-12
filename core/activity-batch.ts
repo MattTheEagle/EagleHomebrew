@@ -5,6 +5,7 @@ import { buildEffectData, type EffectModel } from "./effect-model";
 // One "Add Action"/"Add Bonus Action" entry the window has collected, not yet sent (M7 Apply, section 3): the type
 // (M5) and its form values, plus an optional triggered effect (M5 Apply, section 4).
 export interface ActivityDraft {
+  readonly id?: string;
   readonly type: ActivityType;
   readonly values: Readonly<Record<string, JsonValue>>;
   readonly effect?: EffectModel;
@@ -30,15 +31,15 @@ export function buildActivitiesChanges(
   for (const draft of drafts) {
     let values = draft.values;
     if (draft.effect) {
-      const effectId = newId();
+      const effectId = draft.effect.id ?? newId();
       effects.push({ _id: effectId, ...buildEffectData(draft.effect) });
       values = { ...values, effects: [{ _id: effectId }] };
     }
-    const activityId = newId();
+    const activityId = draft.id ?? newId();
     changes[`system.activities.${activityId}`] = buildActivityData(draft.type, values);
   }
   for (const effect of standaloneEffects) {
-    effects.push({ _id: newId(), ...buildEffectData(effect) });
+    effects.push({ _id: effect.id ?? newId(), ...buildEffectData(effect) });
   }
   if (effects.length > 0) changes.effects = effects;
   return changes;

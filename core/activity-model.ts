@@ -80,7 +80,16 @@ export type ChoicesKind =
   | "armorClassCalculations"
   | "proficiencyLevels"
   | "saveProficiencyLevels"
-  | "legendaryActionIdentifiers";
+  | "advancementItemTypes"
+  | "advancementSpellLevels"
+  | "advancementSpellLists"
+  | "legendaryActionIdentifiers"
+  | "travelPace"
+  | "travelUnits"
+  | "vehicleTypes"
+  | "rollModes"
+  | "ignoredDifficultTerrain"
+  | "physicalItemProperties";
 
 export interface ActivityField {
   readonly path: string;
@@ -102,7 +111,10 @@ const BASE_FIELDS: readonly ActivityField[] = [
   { path: "name", group: "basic", widget: "text" },
   { path: "activation.type", group: "basic", widget: "select", choicesKind: "activationTypes" },
   { path: "activation.value", group: "advanced", widget: "number" },
-  { path: "activation.condition", group: "advanced", widget: "text" },
+  // M20: a condition such as "Only against undead" describes whether a manually triggered Activity applies.
+  // It is native dnd5e data (shown as a Trigger in chat), not a rule that Eagle Homebrew evaluates, so it
+  // belongs next to the visible activation choice instead of behind "More fields".
+  { path: "activation.condition", group: "basic", widget: "text" },
   { path: "consumption.scaling.allowed", group: "advanced", widget: "checkbox" },
   { path: "consumption.scaling.max", group: "advanced", widget: "formula" },
   { path: "consumption.spellSlot", group: "advanced", widget: "checkbox" },

@@ -24,6 +24,7 @@ export interface EffectChange {
 }
 
 export interface EffectModel {
+  readonly id?: string;
   // Required (M5 Discover, Befund 4: ActiveEffect.name is `required: true, blank: false`) — the one true required
   // field in this whole research area; `validateName` (M4) is reused for it, not re-implemented.
   readonly name: string;

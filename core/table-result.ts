@@ -5,6 +5,7 @@ import type { JsonValue } from "./create-pair";
 // entered by hand (Entscheidungen 4/5) — no document-linked entries, no per-entry image or
 // description in this milestone.
 export interface TableResultDraft {
+  readonly id?: string;
   readonly text: string;
   readonly weight: number;
 }
@@ -30,7 +31,7 @@ export function buildTableResults(drafts: readonly TableResultDraft[], newId: ()
     const start = cumulative + 1;
     cumulative += weight;
     return {
-      _id: newId(),
+      _id: draft.id ?? newId(),
       type: "text",
       name: draft.text,
       weight,

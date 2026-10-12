@@ -25,6 +25,8 @@ import type { ChoicesKind } from "./activity-model";
 // kind gets the same treatment rather than a one-off mechanism.
 export type ItemFieldSection =
   | "core"
+  | "currency"
+  | "travel"
   | "physical"
   | "description"
   | "equippable"
@@ -36,7 +38,10 @@ export type ItemFieldSection =
   | "combat"
   | "movement"
   | "senses"
-  | "resistances";
+  | "resistances"
+  | "actions"
+  | "capacity"
+  | "source";
 
 // "weaponDamagePart": Weapon's own damage.base/damage.versatile (dnd5e's shared DamageData, data/shared/
 // damage-field.mjs) — a superset of Activities' damagePart widget (number/denomination/bonus/types) that also
@@ -64,6 +69,8 @@ export interface ItemFieldVisibilityContext {
   // `type.value`/`properties` — optional so every existing caller (none of which needed it) is
   // unaffected (dadm/m11-02-apply-output.md, Entscheidung 5).
   readonly typeSubtype?: string;
+  // M18: Vehicle crew thresholds are meaningful only when individual Action Stations are off.
+  readonly actionStations?: boolean;
 }
 
 export interface ItemField {
@@ -138,7 +145,7 @@ export function weaponHasReach(context: ItemFieldVisibilityContext): boolean {
   return context.typeValue === "siege" || weaponAttackType(context.typeValue) !== "ranged";
 }
 
-export type ItemKind = "tool" | "weapon" | "equipment" | "consumable" | "container" | "feat" | "background" | "spell" | "species" | "class" | "subclass" | "facility" | "npc";
+export type ItemKind = "tool" | "weapon" | "equipment" | "consumable" | "container" | "feat" | "background" | "spell" | "species" | "class" | "subclass" | "facility" | "npc" | "encounter" | "group" | "vehicle";
 
 export interface ItemKindSpec {
   readonly kind: ItemKind;
@@ -170,10 +177,9 @@ const PHYSICAL_FIELDS: readonly ItemField[] = [
 // *official* sourcebook comes from, a concern this module, built for homebrew content, does not have
 // (project lead, live-check rework).
 // M11 live-check rework Runde 2, Fund 2: `identifier` (also tried alongside `description.chat`) was
-// dropped again too — a slug meaningful only for cross-referencing a class/subclass's own Scale Value
-// formulas (e.g. `@scale.wizard.spell-slots`), a concept this module deliberately does not build a UI
-// for (`advancement` stays a raw-JSON fallback, M11 Apply Entscheidung 3) — nobody filling in this
-// form has a reason to set it, and its purpose could not be explained in one line either.
+// dropped again too — a slug meaningful mainly for cross-referencing a class/subclass's own Scale Value
+// formulas (e.g. `@scale.wizard.spell-slots`). The later guided Advancement builder can create those
+// entries, but it does not need a free-standing identifier field in every item form.
 const DESCRIPTION_FIELDS: readonly ItemField[] = [
   { path: "identified", section: "description", widget: "checkbox" },
   { path: "description.value", section: "description", widget: "text" },
@@ -365,9 +371,8 @@ export function isEnchantmentSource(context: ItemFieldVisibilityContext): boolea
 
 // M11: Feat (dadm/m11-02-apply-output.md, Feldliste Feat). No `PhysicalItemTemplate`/
 // `EquippableItemTemplate` at all (Discover Befund 3) — a Feature is not a physical object, so none of
-// `PHYSICAL_FIELDS`/`equippableFields`/`mountableFields` apply. `advancement` (a whole sub-system
-// comparable to Activities, M5-M7) gets the same raw-JSON fallback as `uses.recovery` already has
-// (Entscheidung 3) rather than a dedicated builder — out of scope for this milestone.
+// `PHYSICAL_FIELDS`/`equippableFields`/`mountableFields` apply. M16b moved `advancement` out of this
+// generic field list into the shared guided Advancement builder.
 const FEAT_FIELDS: readonly ItemField[] = [
   { path: "type.value", section: "core", widget: "select", choicesKind: "featureTypes" },
   { path: "type.subtype", section: "core", widget: "dependentSubtypeSelect", choicesKind: "featureTypes", visibleWhen: (ctx) => hasSubtypeCatalog("featureTypes", ctx.typeValue) },
@@ -382,18 +387,16 @@ const FEAT_FIELDS: readonly ItemField[] = [
   { path: "crewed", section: "core", widget: "checkbox" },
   { path: "enchant.max", section: "core", widget: "formula", visibleWhen: isEnchantmentSource },
   { path: "enchant.period", section: "core", widget: "select", choicesKind: "enchantmentPeriods", visibleWhen: isEnchantmentSource },
-  { path: "advancement", section: "advanced", widget: "list" },
   ...DESCRIPTION_FIELDS,
 ];
 
 // M11: Background (dadm/m11-02-apply-output.md, Feldliste Background) — the narrowest kind in the
 // project: no `ActivitiesTemplate` (`core/catalog.ts`'s `ACTIVITY_KINDS` already correctly excludes
-// it, Discover Befund 4), no physical/equippable templates — `wealth` is its only own simple field;
-// `startingEquipment` gets the same raw-JSON fallback as `advancement`.
+// it, Discover Befund 4), no physical/equippable templates — `wealth` is its only own simple field.
+// `startingEquipment` remains a list field; M16b handles `advancement` in the guided builder.
 const BACKGROUND_FIELDS: readonly ItemField[] = [
   { path: "wealth", section: "core", widget: "formula" },
   { path: "startingEquipment", section: "advanced", widget: "list" },
-  { path: "advancement", section: "advanced", widget: "list" },
   ...DESCRIPTION_FIELDS,
 ];
 
@@ -461,7 +464,6 @@ const SPECIES_FIELDS: readonly ItemField[] = [
   { path: "senses.ranges.truesight", section: "core", widget: "number" },
   { path: "senses.units", section: "core", widget: "select", choicesKind: "movementUnits" },
   { path: "senses.special", section: "core", widget: "text" },
-  { path: "advancement", section: "advanced", widget: "list" },
   ...DESCRIPTION_FIELDS,
 ];
 
@@ -600,6 +602,132 @@ const NPC_FIELDS: readonly ItemField[] = [
   { path: "traits.languages.custom", section: "resistances", widget: "text" },
 ];
 
+// M17: Encounter and Group share dnd5e's GroupTemplate (CurrencyTemplate plus its own two-part
+// description). These are Actor system fields, not ItemDescriptionTemplate: no `identified`,
+// `description.value`, or `description.chat`. Members get their own guided Actor-reference builder
+// because their schema differs between the two Actor kinds (core/actor-member-model.ts).
+const GROUP_ACTOR_COMMON_FIELDS: readonly ItemField[] = [
+  { path: "currency.pp", section: "currency", widget: "number" },
+  { path: "currency.gp", section: "currency", widget: "number" },
+  { path: "currency.ep", section: "currency", widget: "number" },
+  { path: "currency.sp", section: "currency", widget: "number" },
+  { path: "currency.cp", section: "currency", widget: "number" },
+  { path: "description.summary", section: "description", widget: "text" },
+  { path: "description.full", section: "description", widget: "text" },
+];
+
+const ENCOUNTER_FIELDS: readonly ItemField[] = [...GROUP_ACTOR_COMMON_FIELDS];
+
+// TravelField uses two fixed, three-key MappingFields (`paces` and `speeds`) rather than an open
+// object, so each land/water/air formula is represented explicitly. Derived `max`/`prePace` values
+// are prepared by dnd5e and are deliberately not inputs.
+const GROUP_FIELDS: readonly ItemField[] = [
+  { path: "details.xp.value", section: "core", widget: "number" },
+  { path: "attributes.travel.pace", section: "travel", widget: "select", choicesKind: "travelPace" },
+  { path: "attributes.travel.paces.land", section: "travel", widget: "formula" },
+  { path: "attributes.travel.paces.water", section: "travel", widget: "formula" },
+  { path: "attributes.travel.paces.air", section: "travel", widget: "formula" },
+  { path: "attributes.travel.speeds.land", section: "travel", widget: "formula" },
+  { path: "attributes.travel.speeds.water", section: "travel", widget: "formula" },
+  { path: "attributes.travel.speeds.air", section: "travel", widget: "formula" },
+  { path: "attributes.travel.time", section: "travel", widget: "number" },
+  { path: "attributes.travel.units", section: "travel", widget: "select", choicesKind: "travelUnits" },
+  ...GROUP_ACTOR_COMMON_FIELDS,
+];
+
+// M18: Vehicle is the second full Actor field model. dnd5e 5.3.3 has one shared schema for
+// air/land/space/water vehicles; `details.type` selects the presentation, not a different model.
+// Runtime values (current HP, spent actions), derived values and legacy migration fields are absent.
+// Actor references and the open damage-modifier mapping use guided builders in their own core files.
+const VEHICLE_FIELDS: readonly ItemField[] = [
+  { path: "details.type", section: "core", widget: "select", choicesKind: "vehicleTypes" },
+  { path: "traits.size", section: "core", widget: "select", choicesKind: "actorSizes" },
+  { path: "attributes.price.value", section: "core", widget: "number" },
+  { path: "attributes.price.denomination", section: "core", widget: "select", choicesKind: "currencies" },
+  { path: "attributes.quality.value", section: "core", widget: "number" },
+  ...ABILITY_KEYS.flatMap((key): ItemField[] => [
+    { path: `abilities.${key}.value`, section: "abilityScores", widget: "number" },
+    { path: `abilities.${key}.proficient`, section: "abilityScores", widget: "select", choicesKind: "saveProficiencyLevels" },
+    { path: `abilities.${key}.max`, section: "abilityScores", widget: "number" },
+    { path: `abilities.${key}.bonuses.check`, section: "abilityScores", widget: "formula" },
+    { path: `abilities.${key}.bonuses.save`, section: "abilityScores", widget: "formula" },
+    { path: `abilities.${key}.check.roll.min`, section: "abilityScores", widget: "number" },
+    { path: `abilities.${key}.check.roll.max`, section: "abilityScores", widget: "number" },
+    { path: `abilities.${key}.check.roll.mode`, section: "abilityScores", widget: "select", choicesKind: "rollModes" },
+    { path: `abilities.${key}.save.roll.min`, section: "abilityScores", widget: "number" },
+    { path: `abilities.${key}.save.roll.max`, section: "abilityScores", widget: "number" },
+    { path: `abilities.${key}.save.roll.mode`, section: "abilityScores", widget: "select", choicesKind: "rollModes" },
+  ]),
+  { path: "attributes.ac.calc", section: "combat", widget: "select", choicesKind: "armorClassCalculations" },
+  { path: "attributes.ac.flat", section: "combat", widget: "number" },
+  { path: "attributes.ac.formula", section: "combat", widget: "formula" },
+  { path: "attributes.hp.max", section: "combat", widget: "number" },
+  { path: "attributes.hp.dt", section: "combat", widget: "number" },
+  { path: "attributes.hp.mt", section: "combat", widget: "number" },
+  { path: "attributes.init.ability", section: "combat", widget: "select", choicesKind: "abilities" },
+  { path: "attributes.init.bonus", section: "combat", widget: "formula" },
+  { path: "attributes.init.roll.min", section: "combat", widget: "number" },
+  { path: "attributes.init.roll.max", section: "combat", widget: "number" },
+  { path: "attributes.init.roll.mode", section: "combat", widget: "select", choicesKind: "rollModes" },
+  { path: "attributes.actions.stations", section: "actions", widget: "checkbox" },
+  { path: "attributes.actions.max", section: "actions", widget: "number" },
+  { path: "attributes.actions.thresholds.0", section: "actions", widget: "number", visibleWhen: (ctx) => !ctx.actionStations },
+  { path: "attributes.actions.thresholds.1", section: "actions", widget: "number", visibleWhen: (ctx) => !ctx.actionStations },
+  { path: "attributes.actions.thresholds.2", section: "actions", widget: "number", visibleWhen: (ctx) => !ctx.actionStations },
+  { path: "attributes.movement.walk", section: "movement", widget: "formula" },
+  { path: "attributes.movement.burrow", section: "movement", widget: "formula" },
+  { path: "attributes.movement.climb", section: "movement", widget: "formula" },
+  { path: "attributes.movement.fly", section: "movement", widget: "formula" },
+  { path: "attributes.movement.swim", section: "movement", widget: "formula" },
+  { path: "attributes.movement.bonus", section: "movement", widget: "formula" },
+  { path: "attributes.movement.special", section: "movement", widget: "text" },
+  { path: "attributes.movement.units", section: "movement", widget: "select", choicesKind: "movementUnits" },
+  { path: "attributes.movement.hover", section: "movement", widget: "checkbox" },
+  { path: "attributes.movement.ignoredDifficultTerrain", section: "movement", widget: "set", choicesKind: "ignoredDifficultTerrain" },
+  { path: "attributes.travel.paces.land", section: "travel", widget: "formula" },
+  { path: "attributes.travel.paces.water", section: "travel", widget: "formula" },
+  { path: "attributes.travel.paces.air", section: "travel", widget: "formula" },
+  { path: "attributes.travel.speeds.land", section: "travel", widget: "formula" },
+  { path: "attributes.travel.speeds.water", section: "travel", widget: "formula" },
+  { path: "attributes.travel.speeds.air", section: "travel", widget: "formula" },
+  { path: "attributes.travel.time", section: "travel", widget: "number" },
+  { path: "attributes.travel.units", section: "travel", widget: "select", choicesKind: "travelUnits" },
+  { path: "attributes.capacity.cargo.value", section: "capacity", widget: "number" },
+  { path: "attributes.capacity.cargo.units", section: "capacity", widget: "select", choicesKind: "weightUnits" },
+  { path: "crew.max", section: "capacity", widget: "number" },
+  { path: "passengers.max", section: "capacity", widget: "number" },
+  { path: "traits.weight.value", section: "capacity", widget: "number" },
+  { path: "traits.weight.units", section: "capacity", widget: "select", choicesKind: "weightUnits" },
+  { path: "traits.keel.value", section: "capacity", widget: "number" },
+  { path: "traits.keel.units", section: "capacity", widget: "select", choicesKind: "distanceUnits" },
+  { path: "traits.beam.value", section: "capacity", widget: "number" },
+  { path: "traits.beam.units", section: "capacity", widget: "select", choicesKind: "distanceUnits" },
+  { path: "traits.di.value", section: "resistances", widget: "set", choicesKind: "damageTypes" },
+  { path: "traits.di.custom", section: "resistances", widget: "text" },
+  { path: "traits.di.bypasses", section: "resistances", widget: "set", choicesKind: "physicalItemProperties" },
+  { path: "traits.dr.value", section: "resistances", widget: "set", choicesKind: "damageTypes" },
+  { path: "traits.dr.custom", section: "resistances", widget: "text" },
+  { path: "traits.dr.bypasses", section: "resistances", widget: "set", choicesKind: "physicalItemProperties" },
+  { path: "traits.dv.value", section: "resistances", widget: "set", choicesKind: "damageTypes" },
+  { path: "traits.dv.custom", section: "resistances", widget: "text" },
+  { path: "traits.dv.bypasses", section: "resistances", widget: "set", choicesKind: "physicalItemProperties" },
+  { path: "traits.dm.bypasses", section: "resistances", widget: "set", choicesKind: "physicalItemProperties" },
+  { path: "traits.ci.value", section: "resistances", widget: "set", choicesKind: "effectConditions" },
+  { path: "traits.ci.custom", section: "resistances", widget: "text" },
+  { path: "currency.pp", section: "currency", widget: "number" },
+  { path: "currency.gp", section: "currency", widget: "number" },
+  { path: "currency.ep", section: "currency", widget: "number" },
+  { path: "currency.sp", section: "currency", widget: "number" },
+  { path: "currency.cp", section: "currency", widget: "number" },
+  { path: "details.biography.value", section: "description", widget: "text" },
+  { path: "details.biography.public", section: "description", widget: "text" },
+  { path: "source.book", section: "source", widget: "text" },
+  { path: "source.page", section: "source", widget: "text" },
+  { path: "source.custom", section: "source", widget: "text" },
+  { path: "source.license", section: "source", widget: "text" },
+  { path: "source.revision", section: "source", widget: "number" },
+];
+
 export const ITEM_KIND_SPECS: readonly ItemKindSpec[] = Object.freeze([
   Object.freeze({ kind: "tool", fields: Object.freeze(TOOL_FIELDS) }),
   Object.freeze({ kind: "weapon", fields: Object.freeze(WEAPON_FIELDS) }),
@@ -614,6 +742,9 @@ export const ITEM_KIND_SPECS: readonly ItemKindSpec[] = Object.freeze([
   Object.freeze({ kind: "subclass", fields: Object.freeze(SUBCLASS_FIELDS) }),
   Object.freeze({ kind: "facility", fields: Object.freeze(FACILITY_FIELDS) }),
   Object.freeze({ kind: "npc", fields: Object.freeze(NPC_FIELDS) }),
+  Object.freeze({ kind: "encounter", fields: Object.freeze(ENCOUNTER_FIELDS) }),
+  Object.freeze({ kind: "group", fields: Object.freeze(GROUP_FIELDS) }),
+  Object.freeze({ kind: "vehicle", fields: Object.freeze(VEHICLE_FIELDS) }),
 ]);
 
 export function specForItemKind(kind: ItemKind): ItemKindSpec {

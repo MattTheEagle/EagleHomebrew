@@ -14,10 +14,18 @@
       "form": {
         "nameLabel": "Name",
         "namePlaceholder": "e.g. Rope, 50 feet",
-        "create": "Create"
+        "create": "Create",
+        "save": "Save"
+      },
+      "edit": {
+        "action": "Edit with Eagle Homebrew",
+        "editRow": "Edit",
+        "status": "Editing paired documents — World: {world}; Library: {library}",
+        "rulesFallback": "The document has no valid rules version; the current dnd5e world setting selected its Library pack."
       },
       "activity": {
         "legend": "Activities",
+        "manualHint": "Each Activity is a separate dnd5e action. Trigger it yourself; Eagle Homebrew does not check conditions automatically.",
         "addAction": "Add Action",
         "activationAction": "Action",
         "activationBonus": "Bonus Action",
@@ -39,7 +47,8 @@
           "damageBonus": "Bonus",
           "damageTypes": "Damage Type(s)",
           "attackRange": "Attack Range",
-          "attackClassification": "Attack Classification"
+          "attackClassification": "Attack Classification",
+          "activationCondition": "Condition (manual check)"
         },
         "effectToggle": "This action triggers an effect",
         "effectName": "Effect Name",
@@ -118,6 +127,7 @@
           "itemGrant": "Item Grant",
           "itemChoice": "Item Choice",
           "scaleValue": "Scale Value",
+          "size": "Size",
           "trait": "Trait"
         },
         "field": {
@@ -132,14 +142,17 @@
           "spell": "Spell Configuration (advanced, raw data)",
           "pool": "Item Pool",
           "allowDrops": "Allow Dropping Items",
-          "restrictionType": "Restrict to Item Type",
-          "restrictionSubtype": "Restrict to Item Subtype",
-          "restrictionLevel": "Restrict to Level",
-          "restrictionList": "Restriction List (advanced, raw data)",
+          "itemType": "Item Type",
+          "restrictionType": "Feature Category",
+          "restrictionSubtype": "Feature Subtype",
+          "restrictionLevel": "Spell Level",
+          "restrictionList": "Spell Lists",
+          "spellLevelAvailable": "Available to the character",
           "distanceUnits": "Distance Units",
           "grants": "Grants",
           "allowReplacements": "Allow Replacements",
-          "mode": "Mode"
+          "mode": "Mode",
+          "sizes": "Allowed Sizes"
         },
         "table": {
           "legendItemChoice": "Choices per Level",
@@ -188,6 +201,27 @@
           "unlisted": "Not shown in the statblock (dnd5e limitation)"
         }
       },
+      "member": {
+        "legend": "Members",
+        "addMember": "Add Member",
+        "actor": "Actor",
+        "quantity": "Quantity",
+        "formula": "Quantity Formula (optional)",
+        "add": "Add",
+        "cancel": "Cancel",
+        "remove": "Remove",
+        "setPrimaryVehicle": "Set as Primary Vehicle",
+        "clearPrimaryVehicle": "Primary Vehicle (clear)",
+        "encounterSummary": "{name} — quantity {quantity}",
+        "groupSummary": "{name} — {type}",
+        "formulaSummary": "Quantity formula: {formula}",
+        "status": {
+          "libraryReference": "Eagle Library reference",
+          "libraryPresent": "World actor — Eagle Library entry found",
+          "libraryMissing": "World reference — no Eagle Library entry",
+          "worldOnly": "World-only by design"
+        }
+      },
       "item": {
         "section": {
           "core": "Details",
@@ -202,7 +236,13 @@
           "combat": "Combat",
           "movement": "Movement",
           "senses": "Senses",
-          "resistances": "Resistances & Languages"
+          "resistances": "Resistances & Languages",
+          "currency": "Currency",
+          "travel": "Travel",
+          "actions": "Actions",
+          "capacity": "Capacity & Dimensions",
+          "source": "Source",
+          "identity": "Identity"
         },
         "field": {
           "toolType": "Tool Type",
@@ -343,7 +383,19 @@
           "legendaryResistancesMax": "Legendary Resistances (Max)",
           "hasLairActions": "Has Lair Actions",
           "lairActionInitiative": "Lair Action Initiative Count",
-          "lairActionInsideOnly": "Lair Action Only Usable Inside Lair"
+          "lairActionInsideOnly": "Lair Action Only Usable Inside Lair",
+          "descriptionSummary": "Description Summary",
+          "descriptionFull": "Full Description",
+          "groupXp": "Experience Points",
+          "travelPace": "Travel Pace",
+          "travelPaceLand": "Land Pace Formula",
+          "travelPaceWater": "Water Pace Formula",
+          "travelPaceAir": "Air Pace Formula",
+          "travelSpeedLand": "Land Speed Formula",
+          "travelSpeedWater": "Water Speed Formula",
+          "travelSpeedAir": "Air Speed Formula",
+          "travelTime": "Travel Time per Day",
+          "travelUnits": "Travel Units"
         }
       },
       "notify": {
@@ -353,8 +405,79 @@
         "created": "{name} created in the world and in the Library.",
         "renamed": "That name was already taken; created as {name}.",
         "failed": "Creating {name} failed ({reason}): {detail}",
+        "editOpenFailed": "Eagle Homebrew could not open this document: {detail}",
+        "editMissing": "One side of this Homebrew pair no longer exists.",
+        "editPairChanged": "The document pair or subtype changed while the editor was open. Reopen it before saving.",
+        "editPreflight": "Nothing was saved because the update failed preflight ({reason}): {detail}",
+        "editFailed": "Saving stopped on {side}, batch {batch} ({reason}): {detail}",
+        "saved": "Saved to the Library and world document.",
+        "noChanges": "No changes.",
         "activitiesFailed": "{name} was created, but its actions could not be saved ({reason}): {detail}",
-        "facilityLegacyHint": "Facility is part of the 2024 Bastion System; this world is currently set to Legacy (2014) rules."
+        "facilityLegacyHint": "Facility is part of the 2024 Bastion System; this world is currently set to Legacy (2014) rules.",
+        "sizeOnlyOnce": "A Species can contain only one Size advancement. Remove the existing one before adding another.",
+        "sizeRequired": "Select at least one allowed size.",
+        "memberActorRequired": "Choose an Actor.",
+        "memberNotFound": "That Actor could not be found.",
+        "memberNotActor": "Choose an Actor document.",
+        "memberAmbiguousLibrary": "More than one Eagle Library entry has this Actor ID. Repair the pair link before adding it.",
+        "memberNotNpc": "An Encounter member must be an NPC.",
+        "memberUnsupportedSource": "This Compendium NPC has no Eagle Library entry. Add it through Eagle Library or create a world Actor first.",
+        "memberInvalidQuantity": "Quantity must be a whole number of 0 or more.",
+        "memberInvalidGroup": "A Group member must be a Character, NPC, or Vehicle.",
+        "memberNoWorld": "dnd5e Groups can only contain world Actors. Import this Actor into the world first.",
+        "memberDuplicate": "That Actor is already a member.",
+        "memberMissingLibrary": "{name} has no Eagle Library entry. The world reference is still allowed.",
+        "membersMissingLibraryCreate": "Creating with world-only member reference(s): {names}.",
+        "primaryVehicleInvalid": "The Primary Vehicle must be a Vehicle that is still in this Group.",
+        "vehicleRosterInvalidActor": "Vehicle rosters accept only Character and NPC Actors.",
+        "vehicleRosterInvalidQuantity": "Quantity must be a whole number of 1 or more.",
+        "vehicleRosterDuplicate": "That Actor is already present in this roster area. Change its one quantity instead.",
+        "vehicleCapacityExceeded": "{area} contains {count}, above the configured capacity of {maximum}. The Vehicle can still be created.",
+        "vehicleDamageTypeRequired": "Choose a damage type for every Damage Modifier row.",
+        "vehicleDamageDuplicate": "Each Damage Modifier damage type can appear only once.",
+        "vehicleComponentCrewInvalid": "Station crew must come from the Vehicle crew and cannot exceed that Actor’s available quantity.",
+        "vehicleStationCapacityExceeded": "Assigned station crew exceeds this station’s configured maximum. The station can still be added."
+      },
+      "vehicle": {
+        "damage": {
+          "legend": "Damage Modifiers",
+          "add": "Add Damage Modifier",
+          "remove": "Remove",
+          "type": "Damage Type",
+          "formula": "Modifier Formula",
+          "all": "All Damage Types"
+        },
+        "roster": {
+          "legend": "Crew, Passengers & Draft Animals",
+          "add": "Add Actor",
+          "areaLabel": "Area",
+          "summary": "{name} — {area}, quantity {quantity}",
+          "area": {
+            "crew": "Crew",
+            "passengers": "Passengers",
+            "draft": "Draft Animals"
+          }
+        },
+        "component": {
+          "legend": "Vehicle Actions & Stations",
+          "add": "Add Feature or Station",
+          "pickType": "What kind of vehicle component is this?",
+          "summary": "{name} — {type}; appears as {category}",
+          "preview": "Appears on the Vehicle sheet as: {category}",
+          "crewLegend": "Station Crew",
+          "noCrew": "Add Actors to the Vehicle crew before assigning station crew.",
+          "type": {
+            "feature": "Feature",
+            "equipmentStation": "Equipment Station",
+            "weaponStation": "Weapon Station"
+          },
+          "category": {
+            "feature": "Feature",
+            "bonus": "Bonus Action",
+            "reaction": "Reaction",
+            "actionStation": "Action Station"
+          }
+        }
       }
     }
   }

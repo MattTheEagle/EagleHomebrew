@@ -4,50 +4,67 @@ Foundry-VTT-Modul **Eagle Homebrew**: der Editor zum Erstellen und Bearbeiten vo
 in den Eagle Modulen (Actors, Items, Roll Tables über 18 Objektarten). Es ist das dritte Modul der
 Eagle Modules und der zweite Verbraucher von Eagle Library, nach Eagle Flight Control.
 
-**Stand:** Version 0.0.1 (Meilenstein M8a: bedingte Feldrelevanz für Tool/Weapon —
-`dadm/m8a-03-deploy-output.md`, Live-Check aussehend; M8 selbst live bestätigt, `dadm/
-m8-05-live-check-output.md`). Tool und Weapon blenden Felder, die je nach anderer Auswahl (Waffentyp,
-Eigenschaften wie "Versatile"/"Ammunition"/"Magical") keine Wirkung hätten, jetzt aus — dieselben
-Bedingungen, die dnd5es eigenes Item-Blatt schon nutzt (`core/item-field-model.ts`s `visibleWhen`,
-am dnd5e-Quellcode nachvollzogen, nicht geraten); `type.baseItem` zeigt außerdem echte, nach Waffen-/
-Werkzeugart gefilterte Namen statt technischer Schlüssel (asynchroner Nachschlag über dnd5es eigene
-`Trait.getBaseItem`-API). Das Modul meldet sich bei
-Eagle Flight Control an (API `0.14.0`) und bekommt einen
-Open-Button im Hub-Tab. Der öffnet ein eigenes Fenster mit Art- (Actor/Item/Roll Table) und
-Unterkategorie-Auswahl über alle 18 Objektarten; **Loot**, **Tool** und **Weapon** haben einen echten
-Editor (Loot: Name-Feld, wie seit M4; Tool und Weapon: volle Feldabdeckung nach N21 plus den
-Activity-Baustein), die übrigen 15 zeigen einen Platzhalter. Ein neues Item entsteht gleichzeitig als
-Welt-Dokument und als Eagle-Library-Eintrag, mit der Regelwerk-Version aus der Welteinstellung
-`rulesVersion` und automatischer "Name (Duplicate)"-Umbenennung bei einer Namenskollision (`dadm/
-m4-02-apply-output.md`). Bei Tool und Weapon lassen sich zusätzlich beliebig viele Aktionen
-("Add Action", fünf Typen: Attack, Damage, Saving Throw, Ability Check, Healing; die Aktivierungsart
-Action/Bonus Action/... wählt man in der Auswahlliste des Unterformulars) mit optional ausgelöstem
-Effekt hinzufügen, bevor das Objekt angelegt wird — sie werden nach der Anlage in **zwei**
-`document.update`-Aufrufen geschrieben, je mit einer eigenen `foundry.utils.deepClone`-Kopie der
-Changes, an Welt- **und** Library-Seite gleichermaßen (zwei Live-Check-Funde: M7 Runde 1 schrieb
-ursprünglich nur an die Welt-Seite, `dadm/m7-02-apply-output.md`; M7 Runde 3 fand, dass die zweite
-Seite sonst eine von Foundrys `Document#update()` bereits mutierte, nicht mehr JSON-taugliche Kopie
-bekam, `dadm/m7-hd-1-output.md`). Formularfelder mit einem dnd5e-Katalog sind echte
-Mehrfachauswahllisten oder Auswahllisten (`fields.createMultiSelectInput`/`createSelectInput`),
-Felder ohne Katalog bleiben Freitext; ein Katalog ohne eigenes Label (Tools/Waffen konkrete Art,
-Munitionstyp) zeigt seinen automatisch formatierten Schlüssel statt eines echten Namens (bewusster
-Kompromiss, `dadm/m8-02-apply-output.md`). **Bekannte Grenze:** das Fenster ist bei aufgeklapptem
-"More fields" trotz zweier Fix-Versuche weiterhin nicht scrollbar (`v13/styles/eagle-homebrew.css`)
-— vom Projektleiter für M7 akzeptiert, Aufgriff später.
+**Stand:** Version 0.0.1, interner Meilenstein M21. Alle 18 vorgesehenen Objektarten besitzen einen
+Editor. Neue Dokumente entstehen gleichzeitig in der Welt und im passenden Eagle-Library-Pack;
+Namenskollisionen erhalten automatisch den Zusatz "(Duplicate)". Die Forge-Live-Checks M17 bis M20
+sind unter Regelversion 2024 ohne offene Funde bestätigt.
+
+M19 ergänzt **Edit with Eagle Homebrew** im Blattkopf und in den Kontextmenüs der Actor-, Item- und
+Roll-Table-Verzeichnisse. Der Einstieg gilt genau für die 18 unterstützten Welt-Dokumentarten. Fehlt
+das Library-Gegenstück, kopiert Eagle Flight Control das vollständige Welt-Dokument mit gleicher ID
+in das passende Pack und Homebrew repariert die Pair-Flags. Der Editor liest anschließend die
+Library als Quelle und speichert bekannte Änderungen Library-zuerst auf beide Seiten. Aktuelle
+unbekannte Felder, fremde Flags und nicht modellierte eingebettete Einträge werden beim Merge
+beibehalten; bestehende modellierte Bausteine behalten ihre IDs. Vor dem Schreiben prüft Homebrew
+alle Update-Pakete, begrenzt sie auf 50 Pfade und blockiert Kollisionen oder zu große Payloads.
+
+M18 ergänzt **Vehicle** mit dem gemeinsamen dnd5e-Schema für Land-, Wasser-, Luft- und
+Weltraumfahrzeuge. Der Editor deckt Fähigkeiten, Kampfwerte, Movement/Travel, Maße,
+Cargo-Kapazität, Schutzmerkmale, Währung, Beschreibung und Quelle ab. Crew, Passengers und Draft
+Animals werden über Actor-Picker mit Mengen und kanonischen Eagle-Library-UUIDs gepflegt. Ein
+zweiter Baustein legt Vehicle Features, Equipment Stations und Weapon Stations mit optionaler
+Activity und geführter Stationsbesatzung als eingebettete Items an. Allgemeine Cargo-Inventar-Items
+und Actor-/verschachtelte Active Effects bleiben bewusst dem nativen Vehicle-Sheet vorbehalten.
+
+M20 macht bedingte Zusatzschäden ohne eigene Automatisierung verständlich: Eine zweite **Damage**-
+Activity speichert etwa „2d6 fire, only against undead“ vollständig im nativen dnd5e-Format. Das
+Feld **Condition (manual check)** ist direkt sichtbar; die Activity wird vom nativen Item-Blatt
+manuell ausgelöst und Eagle Homebrew prüft die Bedingung bewusst nicht automatisch. Damit
+funktioniert die gespeicherte Zusatzaktion auch ohne aktivierte Eagle-Module.
+
+M17 ergänzt **Encounter** und **Group** mit allen spezialisierten Systemfeldern und einem geführten
+Mitglieder-Baustein. Encounter akzeptieren NPCs aus Welt oder Eagle Library und speichern deren
+kanonische UUID samt Menge und optionaler Mengenformel. Groups speichern entsprechend dnd5es Schema
+ausschließlich IDs vorhandener Welt-Actors; Characters, NPCs und Vehicles sind zulässig, und ein
+enthaltenes Vehicle kann als Primary Vehicle gewählt werden. Fehlende Library-Gegenstücke bleiben
+sichtbar und lösen beim Hinzufügen sowie beim Erstellen eine Warnung aus. Die automatische
+Verifikation sowie die Forge-Prüfung unter Regelversion 2024 sind ohne offene Funde abgeschlossen.
+
+M16b erweitert den geführten Advancement-Baustein auf **Class, Subclass, Feat, Background und
+Species**. Die Auswahl zeigt je Item-Art nur die von dnd5e erlaubten Advancement-Typen. Species kann
+genau einen Size-Eintrag mit Medium als Vorgabe erhalten. Item Choice trennt Item-Typ, Feature-
+Kategorie/-Untertyp sowie Spell-Level/-Listen und zeigt nur die Felder, die zur aktuellen Auswahl
+gehören. Item Choice und Scale Value verwalten Stufen in ihren eigenen Tabellen und haben deshalb
+kein zusätzliches allgemeines Level-Feld. Der automatisierte Prüfpfad und der Forge-Live-Check unter
+Regelversion 2024 sind ohne offene Funde bestanden.
+
+Weitere geführte Bausteine decken Activities, Active Effects, Roll-Table-Einträge und die eingebetteten
+Aktionen eines NPC ab. M16a (NPC-Aktionen) wurde auf Forge ohne offene Funde bestätigt. Formularfelder
+mit dnd5e-Katalogen verwenden echte Auswahl- oder Mehrfachauswahlfelder; Felder ohne passenden Katalog
+bleiben als einfache Eingabe erhalten. **Bekannte Grenze:** Das Fenster ist bei aufgeklapptem "More
+fields" trotz zweier früherer Fix-Versuche weiterhin nicht scrollbar
+(`v13/styles/eagle-homebrew.css`); der Projektleiter hat diese Grenze für M7 akzeptiert.
 
 **Hintergrund der Korrektur:** Nach M4 hat der Projektleiter den Grundgedanken korrigiert
-(`dadm/01-project-brief.md`, Abschnitt "Korrektur 2026-09-22"): der Hauptnutzen ist ein eigenes,
+(`dadm/archive/implementation-phase-6-eagle-homebrew/01-project-brief.md`, Abschnitt "Korrektur 2026-09-22"): der Hauptnutzen ist ein eigenes,
 verständlicheres Editor-Blatt mit voller Feldabdeckung je Objektart, nicht nur die Welt/Library-
-Kopplung. Milestone Plan Version 2 (`dadm/04-milestone-plan.md`) setzt das um: M5 legte das reine
+Kopplung. Milestone Plan Version 2 (`dadm/archive/implementation-phase-6-eagle-homebrew/04-milestone-plan.md`) setzt das um: M5 legte das reine
 `core/`-Datenmodell für Activities an (`core/activity-model.ts`: fünf Activity-Typen, vollständiges
 Feldinventar aus dem dnd5e-Quellcode; `core/effect-model.ts`: ausgelöste ActiveEffects;
 `core/path-data.ts`: die gemeinsame Pfad-Verschachtelung), M6 (in Eagle Flight Control) die
-Fähigkeit, bestehende Dokumente gezielt zu ändern, M7 verband beides zur UI. M8 (dieser Stand)
-generalisiert diesen Mechanismus für eine Objektart eigene Felder (`core/item-field-model.ts`,
-strukturell parallel zu `activity-model.ts`) und baut damit die ersten zwei der 16 verbleibenden
-Objektart-Editoren; M9-M18 (`dadm/04-milestone-plan.md`) folgen mit demselben Muster. Nur Foundry
-v13. Es gibt keine Lizenz (Hobbyprojekt). Das Repo ist lokal, hat keinen Remote, und nichts ist
-veröffentlicht.
+Fähigkeit, bestehende Dokumente gezielt zu ändern, M7 verband beides zur UI. M8-M18 erweiterten
+dieses Muster auf alle Objektart-Editoren. Nur Foundry v13. Es gibt keine Lizenz (Hobbyprojekt).
+Das Repo ist lokal, hat keinen Remote, und nichts ist veröffentlicht.
 
 ## Voraussetzungen
 
@@ -59,23 +76,57 @@ Das Manifest (`v13/module.json`) verlangt beide unter `relationships.requires`.
 
 ## Was das Modul heute tut
 
-Registriert sich bei Eagle Flight Control (`core/flight-control.ts`, `v13/module.ts`) mit einer
-`open`-Funktion, die Homebrews eigenes Fenster öffnet (`v13/homebrew-application.ts`, nur für
-Gamemaster/Assistant). Das Fenster führt durch Art (Actor/Item/Roll Table, `core/catalog.ts`) und
-Unterkategorie zu einem Formular; **Loot**, **Tool** und **Weapon** legen tatsächlich etwas an
-(Name-Validierung: `core/creation-form.ts`; Version/Duplicate-Logik: `core/creation-target.ts`,
-`core/name-key.ts`, aus M3; Anlage in Welt und Library: `core/create-pair.ts`, aus M2), die übrigen
-15 Unterkategorien zeigen nur einen Platzhalter. Tool und Weapon zeigen zusätzlich ihre eigenen
-Felder mit voller Abdeckung (`core/item-field-model.ts`, M8: `ItemField`/`ITEM_KIND_SPECS`, in
-`<fieldset>`-Blöcken je Herkunfts-Vorlage gerendert) und den Activity-Baustein
-(`core/activity-model.ts`, `core/effect-model.ts`, `core/activity-batch.ts`): "Add Action" sammelt
-Entwürfe im Fenster (kein eigener Request pro Zeile); der "Create"-Klick baut daraus **und** aus den
-Item-Feldern ein `document.create`/`document.update`-Paar (`core/document-update.ts`, Flight
-Control M6) direkt nach der Anlage. `core/catalog.ts`s `hasActivities`-Feld sagt je Objektart, ob
-dnd5es Datenmodell überhaupt Aktivierungen kennt (nicht bei Loot). Die Widget-Fallunterscheidung
-(Auswahl/Mehrfachauswahl/Zahl/Häkchen/Freitext je nach Feld) ist seit M8 ein einziger geteilter
-Mechanismus (`renderFieldWidget`/`readFieldValue` in `v13/homebrew-application.ts`) für Activity- und
-Item-Felder gemeinsam, statt einer zweiten Kopie derselben Regeln.
+Eagle Homebrew registriert sich bei Eagle Flight Control (`core/flight-control.ts`, `v13/module.ts`).
+Der Hub öffnet das eigene Fenster für Gamemaster und Assistants. Dort führt die Auswahl über Art und
+Unterkategorie zum jeweiligen Editor (`core/catalog.ts`). Die Formulardaten werden beim Erstellen auf
+ein Welt-Dokument und einen Eintrag im passenden Eagle-Library-Pack geschrieben
+(`core/create-pair.ts`). Komplexe Mapping-Felder wie Activities und Advancements folgen anschließend
+über die gezielte `document.update`-Fähigkeit von Flight Control; beide Seiten erhalten dafür eine
+eigene Deep-Clone-Kopie.
+
+Bestehende unterstützte Welt-Dokumente öffnen denselben Editor über die öffentlichen Foundry-v13-
+Hooks (`v13/edit-hooks.ts`). `core/edit-routing.ts` enthält die gemeinsame Allowlist,
+`core/pair-retrofit.ts` plant und repariert das Welt/Library-Paar, und
+`core/edit-projection.ts` erzeugt die verlustfreien, gebündelten Save-Patches.
+
+Die Item-Editoren bilden ihre dnd5e-Felder über `core/item-field-model.ts` ab. Activities und ihre
+ausgelösten Effekte liegen in `core/activity-model.ts`, `core/effect-model.ts` und
+`core/activity-batch.ts`; eigenständige passive Effekte verwenden denselben Zielkatalog. Roll Tables
+haben einen Eintrags-Baustein mit automatisch berechneten Gewichtsbereichen. NPCs besitzen einen
+vollständigen Statblock-Editor sowie einen Actions-Baustein für eingebettete Features und Waffen. Der
+Advancement-Baustein in `core/advancement-model.ts` filtert seine Typen nach der Item-Art und baut die
+jeweiligen dnd5e-Konfigurationen einschließlich verschachtelter Tabellen. Encounter und Group
+verwenden `core/actor-member-model.ts`: Die reine Logik kanonisiert Encounter-Mitglieder auf einen
+vorhandenen Eagle-Library-NPC und erzwingt für Group-Mitglieder die von dnd5e verlangte Welt-ID;
+`v13/module.ts` löst die dafür nötigen Actor-Gegenstücke ausschließlich lesend auf. Vehicle nutzt
+dieselbe Auflösung für Crew, Passengers und Draft Animals; `core/vehicle-component-model.ts` baut
+Features und Stations-Items als gemeinsames `changes.items`-Array mit stabilen IDs.
+
+## Konvention für spätere Eagle-Verbraucher
+
+Eagle Homebrew schreibt Activities als native dnd5e-Daten unter
+`system.activities.<activityId>`. Der Editor unterstützt die Typen `attack`, `damage`, `save`,
+`check` und `heal`. Die Mapping-ID einer bekannten Activity bleibt beim Bearbeiten erhalten;
+unmodellierte Activity-Einträge werden nicht still gelöscht.
+
+Ein bedingter Zusatzschaden der Stufe 1 ist eine **zweite**, native `damage`-Activity. Ihr
+`activation.condition` ist optionaler dnd5e-Freitext, zum Beispiel `Only against undead`, und
+`activation.type` beschreibt den nativen manuellen Auslöser. Der Schaden steht nativ in
+`damage.parts`, zum Beispiel `{ number: 2, denomination: 6, types: ["fire"] }`. Homebrew legt
+dafür keine Eagle-Flag und keine maschinenlesbare Bedingungssemantik an. Ein Verbraucher darf den
+Freitext deshalb weder parsen noch ausführen oder als sicheren Regelvertrag behandeln.
+
+Ausgelöste und eigenständige Active Effects liegen als eingebettete Dokumente im Wurzelpfad
+`effects`. Eine verknüpfte Activity referenziert ihren Effect über
+`activity.effects: [{ _id: <effectId> }]`; der Effect selbst enthält `_id`, `name` und `changes`
+mit `{ key, value, mode }`. Activities und Effects verwenden keine Eagle-Zwischensprache.
+
+Eine spätere automatische Prüfung gehört zu Eagle Roll Out. Sie benötigt dort ein eigenes,
+versioniertes Bedingungsmodell mit Zielkontext, Ausführungsreihenfolge, Rechten und Fehlerverhalten;
+M20s Freitext ist absichtlich keine Quelle dafür. Homebrew benötigt Eagle Flight Control ab `0.8.0`
+mit API `0.14.0` und Eagle Library ab `0.1.0`. Das Bearbeiten bestehender Dokumente nutzt
+`document.update` mit höchstens 50 Pfaden; unbekannte Felder, fremde Flags und nicht modellierte
+eingebettete Einträge bleiben beim Merge erhalten.
 
 ## Bauen
 

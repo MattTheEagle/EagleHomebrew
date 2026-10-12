@@ -38,10 +38,14 @@ const M15_KINDS = ["facility"] as const;
 // no `description.*`, no `source.*`), so it is deliberately excluded from every DESCRIPTION_FIELDS/
 // source.*-related check below; its own field list gets a dedicated test instead.
 const M16_KINDS = ["npc"] as const;
+// M17: Encounter/Group are Actors with GroupTemplate's own description/currency fields, not the
+// Item-only DESCRIPTION_FIELDS the generic checks below cover.
+const M17_KINDS = ["encounter", "group"] as const;
+const M18_KINDS = ["vehicle"] as const;
 
 describe("ITEM_KIND_SPECS", () => {
-  it("has exactly the thirteen M8-M16 kinds", () => {
-    expect(ITEM_KIND_SPECS.map((spec) => spec.kind).sort()).toEqual([...ALL_KINDS, ...M14_KINDS, ...M15_KINDS, ...M16_KINDS].sort());
+  it("has exactly the sixteen M8-M18 kinds", () => {
+    expect(ITEM_KIND_SPECS.map((spec) => spec.kind).sort()).toEqual([...ALL_KINDS, ...M14_KINDS, ...M15_KINDS, ...M16_KINDS, ...M17_KINDS, ...M18_KINDS].sort());
   });
 
   it("marks every field with a path and a widget (no gaps, N21)", () => {
@@ -306,10 +310,8 @@ describe("Feat fields (M11)", () => {
     expect(max?.visibleWhen!(ctx("feat"))).toBe(false);
   });
 
-  it("puts advancement in its own 'advanced' section with the reused JSON list widget", () => {
-    const advancement = feat.find((f) => f.path === "advancement");
-    expect(advancement?.section).toBe("advanced");
-    expect(advancement?.widget).toBe("list");
+  it("leaves advancement to the guided M16b builder", () => {
+    expect(feat.some((f) => f.path === "advancement")).toBe(false);
   });
 
   it("has no MountableTemplate/UsesTemplate fields (not a physical item)", () => {
@@ -326,12 +328,10 @@ describe("Feat fields (M11)", () => {
 describe("Background fields (M11)", () => {
   const background = specForItemKind("background").fields;
 
-  it("has only wealth as a plain field, plus advancement/startingEquipment as raw JSON fallbacks", () => {
+  it("has wealth plus startingEquipment as the remaining raw JSON fallback", () => {
     expect(background.find((f) => f.path === "wealth")?.widget).toBe("formula");
-    const advancement = background.find((f) => f.path === "advancement");
     const startingEquipment = background.find((f) => f.path === "startingEquipment");
-    expect(advancement?.section).toBe("advanced");
-    expect(advancement?.widget).toBe("list");
+    expect(background.some((f) => f.path === "advancement")).toBe(false);
     expect(startingEquipment?.section).toBe("advanced");
     expect(startingEquipment?.widget).toBe("list");
   });
@@ -342,8 +342,8 @@ describe("Background fields (M11)", () => {
     expect(background.every((f) => f.visibleWhen === undefined)).toBe(true);
   });
 
-  it("has exactly the description-retrofit fields plus its own three (no Activities, no Physical)", () => {
-    expect(background.length).toBe(6);
+  it("has exactly the description-retrofit fields plus its own two (no Activities, no Physical)", () => {
+    expect(background.length).toBe(5);
   });
 });
 
@@ -429,10 +429,8 @@ describe("Species fields (M12)", () => {
     expect(species.find((f) => f.path === "type.subtype")?.widget).not.toBe("dependentSubtypeSelect");
   });
 
-  it("puts advancement in its own 'advanced' section with the reused JSON list widget", () => {
-    const advancement = species.find((f) => f.path === "advancement");
-    expect(advancement?.section).toBe("advanced");
-    expect(advancement?.widget).toBe("list");
+  it("leaves advancement to the guided M16b builder", () => {
+    expect(species.some((f) => f.path === "advancement")).toBe(false);
   });
 
   it("has no Physical/Equippable/Activities/Uses fields, and no visibleWhen anywhere", () => {
@@ -595,6 +593,104 @@ describe("NPC_FIELDS (M16)", () => {
     for (const path of paths) expect(path.startsWith("tools.")).toBe(false);
     // No path referencing embedded-item concepts (activities live on Items, never on the Actor itself).
     expect(paths.some((p) => p.includes("activities"))).toBe(false);
+  });
+});
+
+describe("Encounter and Group fields (M17)", () => {
+  it("covers GroupTemplate currency and description fields for both Actor kinds", () => {
+    for (const kind of M17_KINDS) {
+      const fields = specForItemKind(kind).fields;
+      for (const key of ["pp", "gp", "ep", "sp", "cp"]) {
+        const currency = fields.find((field) => field.path === `currency.${key}`);
+        expect(currency?.widget, `${kind}:${key}`).toBe("number");
+        expect(currency?.section, `${kind}:${key}`).toBe("currency");
+      }
+      expect(fields.find((field) => field.path === "description.summary")?.section).toBe("description");
+      expect(fields.find((field) => field.path === "description.full")?.section).toBe("description");
+      for (const itemOnly of ["identified", "description.value", "description.chat"]) {
+        expect(fields.some((field) => field.path === itemOnly), `${kind}:${itemOnly}`).toBe(false);
+      }
+    }
+  });
+
+  it("keeps Encounter's members out of raw fields for the guided builder", () => {
+    const paths = specForItemKind("encounter").fields.map((field) => field.path);
+    expect(paths).toEqual([
+      "currency.pp", "currency.gp", "currency.ep", "currency.sp", "currency.cp",
+      "description.summary", "description.full",
+    ]);
+    expect(paths.some((path) => path.startsWith("members"))).toBe(false);
+  });
+
+  it("covers all stored Group travel and XP fields with runtime catalogs", () => {
+    const fields = specForItemKind("group").fields;
+    expect(fields.find((field) => field.path === "details.xp.value")?.widget).toBe("number");
+    expect(fields.find((field) => field.path === "attributes.travel.pace")?.choicesKind).toBe("travelPace");
+    expect(fields.find((field) => field.path === "attributes.travel.units")?.choicesKind).toBe("travelUnits");
+    for (const mapping of ["paces", "speeds"]) {
+      for (const type of ["land", "water", "air"]) {
+        const field = fields.find((entry) => entry.path === `attributes.travel.${mapping}.${type}`);
+        expect(field?.widget, `${mapping}.${type}`).toBe("formula");
+        expect(field?.section, `${mapping}.${type}`).toBe("travel");
+      }
+    }
+    expect(fields.find((field) => field.path === "attributes.travel.time")?.widget).toBe("number");
+  });
+
+  it("leaves members and primaryVehicle to the guided builder and has no duplicate paths", () => {
+    const paths = specForItemKind("group").fields.map((field) => field.path);
+    expect(paths.some((path) => path.startsWith("members"))).toBe(false);
+    expect(paths).not.toContain("primaryVehicle");
+    expect(new Set(paths).size).toBe(paths.length);
+  });
+});
+
+describe("Vehicle fields (M18)", () => {
+  const fields = specForItemKind("vehicle").fields;
+  const paths = fields.map((field) => field.path);
+
+  it("covers identity, all six expanded abilities, combat, actions, movement, travel, capacity, defenses, currency, biography and source", () => {
+    for (const path of [
+      "details.type", "traits.size", "attributes.price.value", "attributes.quality.value",
+      "attributes.ac.calc", "attributes.hp.max", "attributes.hp.dt", "attributes.hp.mt",
+      "attributes.init.ability", "attributes.actions.stations", "attributes.actions.max",
+      "attributes.movement.ignoredDifficultTerrain", "attributes.travel.speeds.air",
+      "attributes.capacity.cargo.value", "crew.max", "passengers.max", "traits.keel.value", "traits.beam.value",
+      "traits.di.value", "traits.di.bypasses", "traits.dm.bypasses", "traits.ci.value",
+      "currency.gp", "details.biography.value", "source.book", "source.revision",
+    ]) expect(paths, path).toContain(path);
+    for (const ability of ["str", "dex", "con", "int", "wis", "cha"]) {
+      for (const suffix of ["value", "proficient", "max", "bonuses.check", "bonuses.save", "check.roll.min", "check.roll.max", "check.roll.mode", "save.roll.min", "save.roll.max", "save.roll.mode"]) {
+        expect(paths, `${ability}.${suffix}`).toContain(`abilities.${ability}.${suffix}`);
+      }
+    }
+  });
+
+  it("uses guided catalogs for the vehicle-only choices and physical bypass properties", () => {
+    expect(fields.find((field) => field.path === "details.type")?.choicesKind).toBe("vehicleTypes");
+    expect(fields.find((field) => field.path === "abilities.str.check.roll.mode")?.choicesKind).toBe("rollModes");
+    expect(fields.find((field) => field.path === "attributes.movement.ignoredDifficultTerrain")?.choicesKind).toBe("ignoredDifficultTerrain");
+    expect(fields.find((field) => field.path === "traits.dr.bypasses")?.choicesKind).toBe("physicalItemProperties");
+  });
+
+  it("shows crew thresholds only while individual Action Stations are disabled", () => {
+    for (const path of ["attributes.actions.thresholds.0", "attributes.actions.thresholds.1", "attributes.actions.thresholds.2"]) {
+      const visible = fields.find((field) => field.path === path)?.visibleWhen;
+      expect(visible?.({ properties: new Set(), typeValue: "", actionStations: false }), path).toBe(true);
+      expect(visible?.({ properties: new Set(), typeValue: "", actionStations: true }), path).toBe(false);
+    }
+  });
+
+  it("excludes runtime, derived, legacy and guided-builder fields", () => {
+    for (const path of [
+      "attributes.actions.spent", "attributes.actions.value", "attributes.hp.value", "attributes.hp.temp", "attributes.hp.tempmax",
+      "attributes.capacity.creature", "traits.dimensions", "cargo.crew", "cargo.passengers", "crew.value", "passengers.value", "draft.value",
+      "traits.dm.amount", "source.rules",
+    ]) expect(paths, path).not.toContain(path);
+  });
+
+  it("has no duplicate paths", () => {
+    expect(new Set(paths).size).toBe(paths.length);
   });
 });
 
