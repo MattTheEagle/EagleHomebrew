@@ -21,7 +21,7 @@ const FAILURE_CODES = [
 
 const OK_RESULT = {
   ok: true,
-  module: { id: HOMEBREW_ID, title: "Eagle Homebrew", version: "0.0.1", apiVersion: "0.14.0" },
+  module: { id: HOMEBREW_ID, title: "Eagle Homebrew", version: "0.0.2", apiVersion: "0.15.0" },
 };
 
 function recordingLog() {
@@ -76,7 +76,7 @@ describe("registerWithFlightControl", () => {
     const outcome = registerWithFlightControl(() => apiAnswering(OK_RESULT).api, log);
     expect(outcome).toEqual({ status: "registered", module: OK_RESULT.module });
     expect(lines).toEqual([
-      { level: "info", message: "eagle-homebrew | registerModule result: ok (Eagle Homebrew 0.0.1, API 0.14.0)" },
+      { level: "info", message: "eagle-homebrew | registerModule result: ok (Eagle Homebrew 0.0.2, API 0.15.0)" },
     ]);
   });
 
@@ -157,11 +157,10 @@ describe("registerWithFlightControl", () => {
 
 describe("the version pairing with Flight Control", () => {
   it("asks for the API version that the first Flight Control release with it provides", () => {
-    // Contract, section 6: module version 0.8.0 is the first one with API 0.14.0 (`document.update`, M6) — a
-    // compatibility-only patch, live-check finding of M6 (registration needs the exact minor version regardless of
-    // whether the new request type is already used, same effect as the Library's 0.1.1 patch from M2).
+    // M5 cross-consumer compatibility: Flight Control 0.10.0 is the first release with API 0.15.0
+    // (`character.create`); registration needs the exact minor version even when Homebrew does not use that request.
     expect(FLIGHT_CONTROL_ID).toBe("eagle-flight-control");
-    expect(REQUIRED_API_VERSION).toBe("0.14.0");
-    expect(FLIGHT_CONTROL_MIN_MODULE_VERSION).toBe("0.8.0");
+    expect(REQUIRED_API_VERSION).toBe("0.15.0");
+    expect(FLIGHT_CONTROL_MIN_MODULE_VERSION).toBe("0.10.0");
   });
 });

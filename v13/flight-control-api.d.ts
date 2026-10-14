@@ -1,4 +1,4 @@
-// Types of the API of Eagle Flight Control, copied verbatim from its API contract (section 1, API 0.12.0).
+// Types of the API of Eagle Flight Control, copied verbatim from its API contract (section 1, API 0.15.0).
 // Flight Control's code is not shared with Homebrew; this copy is how Homebrew knows the shape of
 // game.modules.get("eagle-flight-control")?.api. Update it together with REQUIRED_API_VERSION in core/flight-control.ts whenever
 // Flight Control changes its API. (Copied from EagleLibrary/v13/flight-control-api.d.ts, M1, no drift so far.)

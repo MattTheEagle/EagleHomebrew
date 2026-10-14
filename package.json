@@ -1,6 +1,6 @@
 {
   "name": "eagle-homebrew",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "type": "module",
   "description": "Foundry VTT editor for creating paired world and Eagle Library homebrew documents.",

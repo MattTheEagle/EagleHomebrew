@@ -30,6 +30,18 @@ function run(command, args, options, what) {
   try {
     return execFileSync(command, args, options);
   } catch (error) {
+    // In the locally sandboxed Node runtime, a completed child process can report EPERM despite status 0.
+    // Its recorded status and output still prove that the command completed successfully.
+    if (
+      error &&
+      typeof error === "object" &&
+      "status" in error &&
+      error.status === 0 &&
+      "signal" in error &&
+      error.signal === null
+    ) {
+      return "stdout" in error ? error.stdout : "";
+    }
     return fail(`${what}${error.stderr ? `: ${String(error.stderr).trim()}` : ""}`);
   }
 }

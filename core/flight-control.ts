@@ -3,14 +3,12 @@ import { HOMEBREW_ID } from "./index";
 // Eagle Flight Control as Homebrew sees it: its module id, the API version Homebrew was written against, and the first
 // Flight Control release that provides that API (contract, sections 5 and 6). Before 1.0.0 the API is tied to its minor
 // version, so a change of Flight Control's API changes REQUIRED_API_VERSION in the same milestone.
-// Raised to 0.14.0/0.8.0 as a compatibility-only patch, live-check finding of M6: registration itself needs the exact
-// minor version regardless of whether Homebrew already calls the new request type (`document.update`, first used in
-// M7) — the same effect M2 already found for the Library (`EagleLibrary/core/flight-control.ts`, patch 0.1.1). Before
-// this patch every Flight Control from 0.8.0 on rejected Homebrew's registration with `incompatible-api-version`
-// (confirmed live, m6-05-live-check-output.md). No rule of this contract changed.
+// Raised to 0.15.0/0.10.0 by the M5 cross-consumer compatibility migration. Registration needs the exact minor
+// version regardless of whether Homebrew calls the new bounded request type (`character.create`); before 1.0.0
+// Flight Control rejects a different minor with `incompatible-api-version`. No Homebrew document rule changed.
 export const FLIGHT_CONTROL_ID = "eagle-flight-control";
-export const REQUIRED_API_VERSION = "0.14.0";
-export const FLIGHT_CONTROL_MIN_MODULE_VERSION = "0.8.0";
+export const REQUIRED_API_VERSION = "0.15.0";
+export const FLIGHT_CONTROL_MIN_MODULE_VERSION = "0.10.0";
 
 // The part of Flight Control's API that registration needs. Flight Control types its parameters as unknown; Homebrew
 // passes the shape the contract describes.
