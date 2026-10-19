@@ -3,12 +3,12 @@ import { HOMEBREW_ID } from "./index";
 // Eagle Flight Control as Homebrew sees it: its module id, the API version Homebrew was written against, and the first
 // Flight Control release that provides that API (contract, sections 5 and 6). Before 1.0.0 the API is tied to its minor
 // version, so a change of Flight Control's API changes REQUIRED_API_VERSION in the same milestone.
-// Raised to 0.15.0/0.10.0 by the M5 cross-consumer compatibility migration. Registration needs the exact minor
-// version regardless of whether Homebrew calls the new bounded request type (`character.create`); before 1.0.0
+// Raised to 0.16.0/0.11.0 by the M8 cross-consumer compatibility migration. Registration needs the exact minor
+// version regardless of whether Homebrew calls the new bounded request type (`character.update`); before 1.0.0
 // Flight Control rejects a different minor with `incompatible-api-version`. No Homebrew document rule changed.
 export const FLIGHT_CONTROL_ID = "eagle-flight-control";
-export const REQUIRED_API_VERSION = "0.15.0";
-export const FLIGHT_CONTROL_MIN_MODULE_VERSION = "0.10.0";
+export const REQUIRED_API_VERSION = "0.16.0";
+export const FLIGHT_CONTROL_MIN_MODULE_VERSION = "0.11.0";
 
 // The part of Flight Control's API that registration needs. Flight Control types its parameters as unknown; Homebrew
 // passes the shape the contract describes.

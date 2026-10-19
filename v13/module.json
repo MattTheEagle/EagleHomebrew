@@ -2,7 +2,7 @@
   "id": "eagle-homebrew",
   "title": "Eagle Homebrew",
   "description": "Eagle Homebrew creates and edits paired world and Eagle Library content through Eagle Flight Control. Its guided editors cover all 18 planned dnd5e object kinds. Supported world documents expose Edit with Eagle Homebrew in sheet headers and directory context menus; missing Library counterparts are copied with stable IDs, and saves preserve unknown fields and opaque embedded entries on both sides.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "authors": [
     {
       "name": "MattTheEagle"
@@ -18,7 +18,7 @@
         "id": "eagle-flight-control",
         "type": "module",
         "compatibility": {
-          "minimum": "0.10.0"
+          "minimum": "0.11.0"
         }
       },
       {

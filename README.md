@@ -4,7 +4,7 @@ Foundry-VTT-Modul **Eagle Homebrew**: der Editor zum Erstellen und Bearbeiten vo
 in den Eagle Modulen (Actors, Items, Roll Tables über 18 Objektarten). Es ist das dritte Modul der
 Eagle Modules und der zweite Verbraucher von Eagle Library, nach Eagle Flight Control.
 
-**Stand:** Version 0.0.2, interner Meilenstein M21 plus M5-Cross-Consumer-Kompatibilität. Alle 18 vorgesehenen Objektarten besitzen einen
+**Stand:** Version 0.0.3, interner Meilenstein M21 plus M8-Cross-Consumer-Kompatibilität. Alle 18 vorgesehenen Objektarten besitzen einen
 Editor. Neue Dokumente entstehen gleichzeitig in der Welt und im passenden Eagle-Library-Pack;
 Namenskollisionen erhalten automatisch den Zusatz "(Duplicate)". Die Forge-Live-Checks M17 bis M20
 sind unter Regelversion 2024 ohne offene Funde bestätigt.
@@ -69,7 +69,7 @@ Das Repo ist lokal, hat keinen Remote, und nichts ist veröffentlicht.
 ## Voraussetzungen
 
 - Foundry VTT v13.
-- Eagle Flight Control ab Version `0.10.0` (API `0.15.0`).
+- Eagle Flight Control ab Version `0.11.0` (API `0.16.0`).
 - Eagle Library ab Version `0.1.0`.
 
 Das Manifest (`v13/module.json`) verlangt beide unter `relationships.requires`.
@@ -123,8 +123,8 @@ mit `{ key, value, mode }`. Activities und Effects verwenden keine Eagle-Zwische
 
 Eine spätere automatische Prüfung gehört zu Eagle Roll Out. Sie benötigt dort ein eigenes,
 versioniertes Bedingungsmodell mit Zielkontext, Ausführungsreihenfolge, Rechten und Fehlerverhalten;
-M20s Freitext ist absichtlich keine Quelle dafür. Homebrew benötigt Eagle Flight Control ab `0.10.0`
-mit API `0.15.0` und Eagle Library ab `0.1.0`. Das Bearbeiten bestehender Dokumente nutzt
+M20s Freitext ist absichtlich keine Quelle dafür. Homebrew benötigt Eagle Flight Control ab `0.11.0`
+mit API `0.16.0` und Eagle Library ab `0.1.0`. Das Bearbeiten bestehender Dokumente nutzt
 `document.update` mit höchstens 50 Pfaden; unbekannte Felder, fremde Flags und nicht modellierte
 eingebettete Einträge bleiben beim Merge erhalten.
 

@@ -1,4 +1,4 @@
-// Types of the API of Eagle Flight Control, copied verbatim from its API contract (section 1, API 0.15.0).
+// Types of the API of Eagle Flight Control, copied verbatim from its API contract (section 1, API 0.16.0).
 // Flight Control's code is not shared with Homebrew; this copy is how Homebrew knows the shape of
 // game.modules.get("eagle-flight-control")?.api. Update it together with REQUIRED_API_VERSION in core/flight-control.ts whenever
 // Flight Control changes its API. (Copied from EagleLibrary/v13/flight-control-api.d.ts, M1, no drift so far.)
@@ -25,6 +25,20 @@ type RegistrationResult =
 
 type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 
+type CharacterUpdateAbility = "str" | "dex" | "con" | "int" | "wis" | "cha";
+interface CharacterUpdateV1 {
+  readonly uuid: `Actor.${string}`;
+  readonly operationId: string;
+  readonly revision: number;
+  readonly abilities: Readonly<Partial<Record<CharacterUpdateAbility, { readonly from: number; readonly to: number }>>>;
+}
+interface CharacterUpdateResultV1 {
+  readonly uuid: string;
+  readonly revision: number;
+  readonly applied: boolean;
+  readonly changed: readonly CharacterUpdateAbility[];
+}
+
 type RequestFailure =
   | "invalid-request"
   | "not-registered"
@@ -36,7 +50,8 @@ type RequestFailure =
   | "no-gm"
   | "relay-timeout"
   | "relay-failed"
-  | "not-permitted";
+  | "not-permitted"
+  | "conflict";
 
 type RequestResult =
   | { readonly ok: true; readonly value: JsonValue }
